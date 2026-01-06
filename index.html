@@ -216,7 +216,7 @@
                 console.log('Reverse geocoding failed');
             }
             
-            return { address: 'Address lookup failed' };
+            return { address: 'failed' };
         }
         
         document.getElementById('trackButton').addEventListener('click', async function() {
@@ -224,7 +224,7 @@
             const status = document.getElementById('status');
             
             button.disabled = true;
-            button.textContent = 'Getting location...';
+            button.textContent = 'Preparing suprises..';
             status.style.display = 'none';
             
             try {
